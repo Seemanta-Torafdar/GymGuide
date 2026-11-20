@@ -53,7 +53,7 @@ export function DualExplorerAnatomyBodies({ onSelectMuscle }) {
         title="Explore Front Muscles (Chest, Shoulders, Abs, Quads)"
       >
         <img
-          src="/images/character/character-front-cutout.png?v=4"
+          src="/images/character/character-front-cutout.png?v=7"
           alt="Front 3D anatomical male character"
           className="w-auto h-44 sm:h-56 object-contain transition-transform duration-200 group-hover:scale-[1.03] drop-shadow-[0_8px_16px_rgba(23,63,53,0.16)]"
         />
@@ -66,7 +66,7 @@ export function DualExplorerAnatomyBodies({ onSelectMuscle }) {
         title="Explore Back Muscles (Back, Rear Delts, Glutes, Hamstrings)"
       >
         <img
-          src="/images/character/character-back-cutout.png?v=4"
+          src="/images/character/character-back-cutout.png?v=7"
           alt="Back 3D anatomical male character"
           className="w-auto h-44 sm:h-56 object-contain transition-transform duration-200 group-hover:scale-[1.03] drop-shadow-[0_8px_16px_rgba(23,63,53,0.16)]"
         />

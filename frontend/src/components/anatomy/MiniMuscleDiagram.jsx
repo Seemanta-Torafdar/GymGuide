@@ -52,8 +52,8 @@ export function MiniMuscleDiagram({
     const h = 675;
     const regions = isFront ? FRONT_CHARACTER_REGIONS : BACK_CHARACTER_REGIONS;
     const imgSrc = isFront
-      ? '/images/character/character-front-cutout.png?v=4'
-      : '/images/character/character-back-cutout.png?v=4';
+      ? '/images/character/character-front-cutout.png?v=7'
+      : '/images/character/character-back-cutout.png?v=7';
     const filterId = `mini-alpha-${side}`;
     const maskId = `mini-mask-${side}`;
     const featherId = `mini-feather-${side}`;

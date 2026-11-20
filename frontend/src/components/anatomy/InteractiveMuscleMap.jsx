@@ -203,14 +203,14 @@ export function InteractiveMuscleMap({
 
   const poseMeta =
     characterPose === 'FRONT'
-      ? { src: '/images/character/character-front-cutout.png?v=4', w: 316, h: 675 }
+      ? { src: '/images/character/character-front-cutout.png?v=7', w: 316, h: 675 }
       : characterPose === 'BACK'
-      ? { src: '/images/character/character-back-cutout.png?v=4', w: 302, h: 675 }
+      ? { src: '/images/character/character-back-cutout.png?v=7', w: 302, h: 675 }
       : characterPose === 'SIDE_RIGHT'
-      ? { src: '/images/character/character-side-cutout.png?v=4', w: 154, h: 675 }
+      ? { src: '/images/character/character-side-cutout.png?v=7', w: 154, h: 675 }
       : characterPose === 'SIDE_LEFT'
-      ? { src: '/images/character/character-side-left-cutout.png?v=4', w: 154, h: 675 }
-      : { src: '/images/character/character-quad-cutout.png?v=4', w: 946, h: 675 };
+      ? { src: '/images/character/character-side-left-cutout.png?v=7', w: 154, h: 675 }
+      : { src: '/images/character/character-quad-cutout.png?v=7', w: 950, h: 675 };
 
   // Strict precision selector: stains ONLY hovered head, OR selected exact sub-muscle head, OR broad group
   const isRegionActive = (reg) => {
@@ -513,11 +513,11 @@ export function InteractiveMuscleMap({
                     {characterPose === 'ALL' && (
                       <>
                         {renderColorDyeLayer(FRONT_CHARACTER_REGIONS, 'translate(0, 0)')}
-                        {renderColorDyeLayer(BACK_CHARACTER_REGIONS, 'translate(278, 0)')}
-                        {renderColorDyeLayer(SIDE_CHARACTER_REGIONS, 'translate(582, 0)')}
+                        {renderColorDyeLayer(SIDE_CHARACTER_REGIONS, 'translate(318, 0)')}
+                        {renderColorDyeLayer(BACK_CHARACTER_REGIONS, 'translate(478, 0)')}
                         {renderColorDyeLayer(
                           SIDE_CHARACTER_REGIONS,
-                          'translate(794, 0) translate(154, 0) scale(-1, 1)'
+                          'translate(790, 0) translate(154, 0) scale(-1, 1)'
                         )}
                       </>
                     )}
@@ -541,11 +541,11 @@ export function InteractiveMuscleMap({
                     {characterPose === 'ALL' && (
                       <>
                         {renderMultiplyDepthLayer(FRONT_CHARACTER_REGIONS, 'translate(0, 0)')}
-                        {renderMultiplyDepthLayer(BACK_CHARACTER_REGIONS, 'translate(278, 0)')}
-                        {renderMultiplyDepthLayer(SIDE_CHARACTER_REGIONS, 'translate(582, 0)')}
+                        {renderMultiplyDepthLayer(SIDE_CHARACTER_REGIONS, 'translate(318, 0)')}
+                        {renderMultiplyDepthLayer(BACK_CHARACTER_REGIONS, 'translate(478, 0)')}
                         {renderMultiplyDepthLayer(
                           SIDE_CHARACTER_REGIONS,
-                          'translate(794, 0) translate(154, 0) scale(-1, 1)'
+                          'translate(790, 0) translate(154, 0) scale(-1, 1)'
                         )}
                       </>
                     )}
@@ -566,11 +566,11 @@ export function InteractiveMuscleMap({
                     {characterPose === 'ALL' && (
                       <>
                         {renderInteractiveLayer(FRONT_CHARACTER_REGIONS, 'translate(0, 0)')}
-                        {renderInteractiveLayer(BACK_CHARACTER_REGIONS, 'translate(278, 0)')}
-                        {renderInteractiveLayer(SIDE_CHARACTER_REGIONS, 'translate(582, 0)')}
+                        {renderInteractiveLayer(SIDE_CHARACTER_REGIONS, 'translate(318, 0)')}
+                        {renderInteractiveLayer(BACK_CHARACTER_REGIONS, 'translate(478, 0)')}
                         {renderInteractiveLayer(
                           SIDE_CHARACTER_REGIONS,
-                          'translate(794, 0) translate(154, 0) scale(-1, 1)'
+                          'translate(790, 0) translate(154, 0) scale(-1, 1)'
                         )}
                       </>
                     )}
@@ -708,8 +708,8 @@ export function InteractiveMuscleMap({
             {[
               { id: 'ALL', label: 'All 4 Views' },
               { id: 'FRONT', label: 'Front' },
-              { id: 'BACK', label: 'Back' },
               { id: 'SIDE_RIGHT', label: 'Side Right' },
+              { id: 'BACK', label: 'Back' },
               { id: 'SIDE_LEFT', label: 'Side Left' },
             ].map((tab) => (
               <button

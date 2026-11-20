@@ -649,7 +649,7 @@ export function ExerciseWorkoutSimulator({
                 Anterior Hit
               </span>
               {renderAnatomicalHitFigure(
-                '/images/character/character-front-cutout.png?v=4',
+                '/images/character/character-front-cutout.png?v=7',
                 FRONT_CHARACTER_REGIONS,
                 316,
                 675,
@@ -663,7 +663,7 @@ export function ExerciseWorkoutSimulator({
                 Posterior Hit
               </span>
               {renderAnatomicalHitFigure(
-                '/images/character/character-back-cutout.png?v=4',
+                '/images/character/character-back-cutout.png?v=7',
                 BACK_CHARACTER_REGIONS,
                 302,
                 675,
