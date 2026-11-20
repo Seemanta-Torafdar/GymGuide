@@ -1,0 +1,47 @@
+{
+  "name": "gymguide-backend",
+  "version": "1.0.0",
+  "description": "GymGuide RESTful API Backend - NestJS (JavaScript ES6+) & Prisma PostgreSQL",
+  "private": true,
+  "scripts": {
+    "build": "babel src --out-dir dist --copy-files",
+    "start": "node -r ./register.js src/main.js",
+    "start:dev": "node --watch -r ./register.js src/main.js",
+    "start:prod": "node dist/main.js",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate deploy",
+    "prisma:seed": "node prisma/seed.js",
+    "test": "node test/api.test.js"
+  },
+  "dependencies": {
+    "@nestjs/common": "^12.5.1",
+    "@nestjs/core": "^12.5.1",
+    "@nestjs/platform-express": "^12.5.1",
+    "@nestjs/swagger": "^12.1.2",
+    "@prisma/client": "^5.22.0",
+    "bcryptjs": "^2.4.3",
+    "compression": "^1.7.4",
+    "cookie-parser": "^1.4.7",
+    "dotenv": "^16.4.5",
+    "helmet": "^8.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.1",
+    "swagger-ui-express": "^5.0.1"
+  },
+  "devDependencies": {
+    "@babel/cli": "^7.25.9",
+    "@babel/core": "^7.26.0",
+    "@babel/plugin-proposal-decorators": "^7.25.9",
+    "@babel/plugin-transform-class-properties": "^7.25.9",
+    "@babel/preset-env": "^7.26.0",
+    "@babel/register": "^7.25.9",
+    "prisma": "^5.22.0"
+  },
+  "allowScripts": {
+    "@prisma/client@5.22.0": true,
+    "@prisma/engines@5.22.0": true,
+    "@scarf/scarf@1.4.0": true,
+    "prisma@5.22.0": true
+  }
+}

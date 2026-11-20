@@ -1,0 +1,88 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --bg-main: #E5E8CE;
+    --bg-navbar: rgba(255, 255, 255, 0.75);
+    --nav-active: #789575;
+    --btn-primary: #173F35;
+    --btn-hover: #789575;
+    --bg-card: #F1F2E8;
+    --text-heading: #263B2D;
+    --text-body: #657565;
+    --border-color: #D2D9C5;
+    --bg-footer: #173F35;
+    --bg-footer-bottom: #102E27;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    background-color: #E5E8CE;
+    color: #657565;
+  }
+
+  body {
+    background-color: #E5E8CE;
+    color: #657565;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    overflow-x: hidden;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    color: #263B2D;
+  }
+}
+
+/* Subtle anatomical grid on cards */
+.bg-anatomy-grid {
+  background-size: 28px 28px;
+  background-image: 
+    linear-gradient(to right, rgba(23, 63, 53, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(23, 63, 53, 0.05) 1px, transparent 1px);
+}
+
+/* Interactive SVG muscle path transitions */
+.muscle-region {
+  transition: fill 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+              stroke 0.22s ease,
+              filter 0.25s ease;
+  cursor: pointer;
+}
+
+.muscle-region:hover {
+  filter: drop-shadow(0 0 8px rgba(120, 149, 117, 0.45));
+}
+
+.muscle-region-active {
+  filter: drop-shadow(0 0 12px rgba(23, 63, 53, 0.45));
+}
+
+/* Hide scrollbar for horizontal scrollable rows on mobile */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Custom sage scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #E5E8CE;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #789575;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #173F35;
+}

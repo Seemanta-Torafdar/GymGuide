@@ -1,0 +1,309 @@
+// ============================================================================
+// GYMGUIDE - PRISMA POSTGRESQL SCHEMA
+// 12 Relational Tables with Primary Keys, Foreign Keys, Indexes & Cascading
+// ============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum DifficultyLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+}
+
+enum ExerciseType {
+  COMPOUND
+  ISOLATION
+  STABILITY
+}
+
+enum MuscleRole {
+  PRIMARY
+  SECONDARY
+}
+
+enum BodySide {
+  FRONT
+  BACK
+  BOTH
+}
+
+// 1. users
+model User {
+  id               String         @id @default(uuid())
+  email            String         @unique
+  passwordHash     String         @map("password_hash")
+  displayName      String         @map("display_name")
+  role             UserRole       @default(USER)
+  refreshTokenHash String?        @map("refresh_token_hash")
+  failedLoginCount Int            @default(0) @map("failed_login_count")
+  lockedUntil      DateTime?      @map("locked_until")
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
+
+  favorites        UserFavorite[]
+  workoutLogs      WorkoutLog[]
+
+  @@index([email])
+  @@map("users")
+}
+
+// 2. muscle_groups
+model MuscleGroup {
+  id          String   @id @default(uuid())
+  slug        String   @unique
+  name        String   @unique
+  description String
+  bodyRegion  String   @map("body_region")
+  displayOrder Int     @default(0) @map("display_order")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  muscles     Muscle[]
+  exercises   Exercise[]
+
+  @@index([slug])
+  @@map("muscle_groups")
+}
+
+// 3. muscles
+model Muscle {
+  id                 String           @id @default(uuid())
+  slug               String           @unique
+  name               String           @unique
+  scientificName     String           @map("scientific_name")
+  bodySide           BodySide         @map("body_side")
+  svgRegionId        String           @map("svg_region_id")
+  shortDescription   String           @map("short_description")
+  anatomicalFunction String           @map("anatomical_function")
+  trainingTip        String           @map("training_tip")
+  muscleGroupId      String           @map("muscle_group_id")
+  createdAt          DateTime         @default(now()) @map("created_at")
+  updatedAt          DateTime         @updatedAt @map("updated_at")
+
+  muscleGroup        MuscleGroup      @relation(fields: [muscleGroupId], references: [id], onDelete: Restrict)
+  exerciseMuscles    ExerciseMuscle[]
+
+  @@index([slug])
+  @@index([muscleGroupId])
+  @@index([bodySide])
+  @@map("muscles")
+}
+
+// 4. exercises
+model Exercise {
+  id                  String                @id @default(uuid())
+  slug                String                @unique
+  name                String                @unique
+  category            String
+  muscleGroupId       String                @map("muscle_group_id")
+  difficulty          DifficultyLevel       @default(BEGINNER)
+  exerciseType        ExerciseType          @default(COMPOUND) @map("exercise_type")
+  forceType           String                @default("Push") @map("force_type")
+  description         String
+  startingPosition    String                @map("starting_position")
+  recommendedSets     String                @map("recommended_sets")
+  recommendedReps     String                @map("recommended_reps")
+  restDuration        String                @map("rest_duration")
+  commonMistakes      String[]              @map("common_mistakes")
+  safetyTips          String[]              @map("safety_tips")
+  movementDifferences String                @map("movement_differences")
+  advantages          String[]
+  limitations         String[]
+  mediaUrl            String?               @map("media_url")
+  isPopular           Boolean               @default(false) @map("is_popular")
+  createdAt           DateTime              @default(now()) @map("created_at")
+  updatedAt           DateTime              @updatedAt @map("updated_at")
+
+  muscleGroup         MuscleGroup           @relation(fields: [muscleGroupId], references: [id], onDelete: Restrict)
+  exerciseMuscles     ExerciseMuscle[]
+  exerciseEquipment   ExerciseEquipment[]
+  instructions        ExerciseInstruction[]
+  workoutPlanItems    WorkoutPlanExercise[]
+  favoritedBy         UserFavorite[]
+  workoutLogs         WorkoutLog[]
+
+  @@index([slug])
+  @@index([category])
+  @@index([muscleGroupId])
+  @@index([difficulty])
+  @@index([exerciseType])
+  @@map("exercises")
+}
+
+// 5. exercise_muscles
+model ExerciseMuscle {
+  id                String     @id @default(uuid())
+  exerciseId        String     @map("exercise_id")
+  muscleId          String     @map("muscle_id")
+  role              MuscleRole @default(PRIMARY)
+  activationPercent Int        @default(85) @map("activation_percent")
+  createdAt         DateTime   @default(now()) @map("created_at")
+
+  exercise          Exercise   @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  muscle            Muscle     @relation(fields: [muscleId], references: [id], onDelete: Cascade)
+
+  @@unique([exerciseId, muscleId])
+  @@index([exerciseId])
+  @@index([muscleId])
+  @@index([role])
+  @@map("exercise_muscles")
+}
+
+// 6. equipment
+model Equipment {
+  id                String              @id @default(uuid())
+  slug              String              @unique
+  name              String              @unique
+  category          String
+  description       String
+  createdAt         DateTime            @default(now()) @map("created_at")
+  updatedAt         DateTime            @updatedAt @map("updated_at")
+
+  exerciseEquipment ExerciseEquipment[]
+
+  @@index([slug])
+  @@map("equipment")
+}
+
+// M:N Join Table between exercises and equipment
+model ExerciseEquipment {
+  id          String    @id @default(uuid())
+  exerciseId  String    @map("exercise_id")
+  equipmentId String    @map("equipment_id")
+  isOptional  Boolean   @default(false) @map("is_optional")
+
+  exercise    Exercise  @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  equipment   Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+
+  @@unique([exerciseId, equipmentId])
+  @@index([exerciseId])
+  @@index([equipmentId])
+  @@map("exercise_equipment")
+}
+
+// 7. exercise_instructions
+model ExerciseInstruction {
+  id          String   @id @default(uuid())
+  exerciseId  String   @map("exercise_id")
+  stepNumber  Int      @map("step_number")
+  title       String
+  instruction String
+  coachingCue String?  @map("coaching_cue")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  exercise    Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+
+  @@unique([exerciseId, stepNumber])
+  @@index([exerciseId])
+  @@map("exercise_instructions")
+}
+
+// 8. workout_plans
+model WorkoutPlan {
+  id                  String           @id @default(uuid())
+  slug                String           @unique
+  name                String           @unique
+  subtitle            String
+  description         String
+  difficulty          DifficultyLevel  @default(BEGINNER)
+  daysPerWeek         Int              @map("days_per_week")
+  sessionDurationMins Int              @map("session_duration_mins")
+  goal                String
+  targetAudience      String           @map("target_audience")
+  createdAt           DateTime         @default(now()) @map("created_at")
+  updatedAt           DateTime         @updatedAt @map("updated_at")
+
+  days                WorkoutPlanDay[]
+
+  @@index([slug])
+  @@index([daysPerWeek])
+  @@map("workout_plans")
+}
+
+// 9. workout_plan_days
+model WorkoutPlanDay {
+  id            String                @id @default(uuid())
+  workoutPlanId String                @map("workout_plan_id")
+  dayNumber     Int                   @map("day_number")
+  dayLabel      String                @map("day_label")
+  focusArea     String                @map("focus_area")
+  targetMuscles String[]              @map("target_muscles")
+  notes         String?
+  createdAt     DateTime              @default(now()) @map("created_at")
+
+  workoutPlan   WorkoutPlan           @relation(fields: [workoutPlanId], references: [id], onDelete: Cascade)
+  exercises     WorkoutPlanExercise[]
+
+  @@unique([workoutPlanId, dayNumber])
+  @@index([workoutPlanId])
+  @@map("workout_plan_days")
+}
+
+// 10. workout_plan_exercises
+model WorkoutPlanExercise {
+  id               String         @id @default(uuid())
+  workoutPlanDayId String         @map("workout_plan_day_id")
+  exerciseId       String         @map("exercise_id")
+  orderIndex       Int            @map("order_index")
+  sets             Int
+  reps             String
+  restGuidance     String         @map("rest_guidance")
+  notes            String?
+
+  workoutPlanDay   WorkoutPlanDay @relation(fields: [workoutPlanDayId], references: [id], onDelete: Cascade)
+  exercise         Exercise       @relation(fields: [exerciseId], references: [id], onDelete: Restrict)
+
+  @@unique([workoutPlanDayId, orderIndex])
+  @@index([workoutPlanDayId])
+  @@index([exerciseId])
+  @@map("workout_plan_exercises")
+}
+
+// 11. user_favorites
+model UserFavorite {
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  exerciseId String   @map("exercise_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  exercise   Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, exerciseId])
+  @@index([userId])
+  @@index([exerciseId])
+  @@map("user_favorites")
+}
+
+// 12. workout_logs
+model WorkoutLog {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  exerciseId  String   @map("exercise_id")
+  setsDone    Int      @map("sets_done")
+  repsDone    Int      @map("reps_done")
+  weightKg    Float?   @map("weight_kg")
+  notes       String?
+  performedAt DateTime @default(now()) @map("performed_at")
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  exercise    Exercise @relation(fields: [exerciseId], references: [id], onDelete: Restrict)
+
+  @@index([userId])
+  @@index([exerciseId])
+  @@index([performedAt])
+  @@map("workout_logs")
+}
