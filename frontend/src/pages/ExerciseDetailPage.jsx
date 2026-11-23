@@ -16,10 +16,17 @@ import {
   Check,
   Bookmark,
   ChevronRight,
+  Video,
 } from 'lucide-react';
 import { ExerciseVisualDemo } from '../components/exercises/ExerciseVisualDemo';
+import { FourStepVisualFormSequence } from '../components/exercises/FourStepVisualFormSequence';
+import { ExerciseWorkoutSimulator } from '../components/exercises/ExerciseWorkoutSimulator';
 import { MiniMuscleDiagram } from '../components/anatomy/MiniMuscleDiagram';
 import { ExerciseCard } from '../components/exercises/ExerciseCard';
+import {
+  SecureInstructionImage,
+  STEP_ROLE_LABELS,
+} from '../components/common/SecureMediaComponents';
 import { gymGuideApi } from '../services/api.service';
 import { useGymGuide } from '../context/GymGuideContext';
 import {
@@ -100,7 +107,8 @@ export default function ExerciseDetailPage() {
     exercise.equipment?.[0]?.slug || exercise.equipment?.[0]?.name || 'bodyweight'
   );
   const subRegionLabel =
-    exercise.category === 'Chest' ? getChestSubRegionLabel(exercise) : null;
+    exercise.targetMusclePart ||
+    (exercise.category === 'Chest' ? getChestSubRegionLabel(exercise) : null);
   const firstSimilarSlug =
     exercise.similarExercises?.[0]?.slug ||
     (exercise.slug === 'barbell-bench-press'
@@ -109,6 +117,7 @@ export default function ExerciseDetailPage() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-7">
+      {/* Top Navigation & Action Controls */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2 text-xs text-[#657565]">
           <Link
@@ -170,194 +179,91 @@ export default function ExerciseDetailPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        <div className="lg:col-span-8 space-y-6">
-          <div className="bg-[#F1F2E8] border border-[#D2D9C5] rounded-2xl p-6 sm:p-7 shadow-sm">
-            <div className="flex flex-wrap items-center gap-2 mb-3">
-              <span className="px-3 py-1 rounded-full bg-[#173F35] text-white text-xs font-bold">
-                {equipmentLabel}
+      {/* 1. EXERCISE NAME & OVERVIEW + 2. EXISTING EXERCISE DEMONSTRATION VIDEO */}
+      <section className="bg-[#F1F2E8] border border-[#D2D9C5] rounded-2xl p-6 sm:p-7 shadow-sm space-y-5">
+        <div>
+          <div className="flex flex-wrap items-center gap-2 mb-3">
+            <span className="px-3 py-1 rounded-full bg-[#173F35] text-white text-xs font-bold">
+              {equipmentLabel}
+            </span>
+            {subRegionLabel && (
+              <span className="px-3 py-1 rounded-full bg-[#E5E8CE] text-[#263B2D] border border-[#D2D9C5] text-xs font-bold">
+                {subRegionLabel}
               </span>
-              {subRegionLabel && (
-                <span className="px-3 py-1 rounded-full bg-[#E5E8CE] text-[#263B2D] border border-[#D2D9C5] text-xs font-bold">
-                  {subRegionLabel}
-                </span>
-              )}
-              <span
-                className={`px-3 py-1 rounded-full text-xs font-bold border ${getDifficultyBadgeClasses(
-                  exercise.difficulty
-                )}`}
-              >
-                {formatDifficultyLabel(exercise.difficulty)}
-              </span>
-              <span className="px-3 py-1 rounded-full bg-[#E5E8CE] text-[#657565] border border-[#D2D9C5] text-xs font-mono">
-                {formatExerciseType(exercise.exerciseType)} • {exercise.forceType}
-              </span>
-            </div>
-
-            <h1 className="text-2xl sm:text-4xl font-extrabold font-display text-[#263B2D]">
-              {exercise.name}
-            </h1>
-            <p className="text-sm sm:text-base text-[#657565] mt-2 leading-relaxed">
-              {exercise.description}
-            </p>
-
-            <div className="mt-5">
-              <ExerciseVisualDemo exercise={exercise} size="hero" />
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-5">
-              <div className="p-3.5 rounded-xl bg-white border border-[#D2D9C5]">
-                <div className="flex items-center gap-1.5 text-xs text-[#657565] mb-1">
-                  <Layers className="w-3.5 h-3.5 text-[#173F35]" />
-                  <span>Recommended Sets</span>
-                </div>
-                <p className="text-base font-extrabold text-[#263B2D]">
-                  {exercise.recommendedSets}
-                </p>
-              </div>
-
-              <div className="p-3.5 rounded-xl bg-white border border-[#D2D9C5]">
-                <div className="flex items-center gap-1.5 text-xs text-[#657565] mb-1">
-                  <Repeat className="w-3.5 h-3.5 text-[#173F35]" />
-                  <span>Repetitions</span>
-                </div>
-                <p className="text-base font-extrabold text-[#173F35]">
-                  {exercise.recommendedReps}
-                </p>
-              </div>
-
-              <div className="p-3.5 rounded-xl bg-white border border-[#D2D9C5]">
-                <div className="flex items-center gap-1.5 text-xs text-[#657565] mb-1">
-                  <Clock className="w-3.5 h-3.5 text-[#173F35]" />
-                  <span>Rest Guidance</span>
-                </div>
-                <p className="text-base font-extrabold text-[#263B2D]">
-                  {exercise.restDuration}
-                </p>
-              </div>
-
-              <div className="p-3.5 rounded-xl bg-white border border-[#D2D9C5]">
-                <div className="flex items-center gap-1.5 text-xs text-[#657565] mb-1">
-                  <Dumbbell className="w-3.5 h-3.5 text-[#173F35]" />
-                  <span>Equipment</span>
-                </div>
-                <p className="text-sm font-bold text-[#263B2D] line-clamp-1">
-                  {(exercise.equipment || []).map((eq) => eq.name).join(', ') ||
-                    'Bodyweight'}
-                </p>
-              </div>
-            </div>
+            )}
+            <span
+              className={`px-3 py-1 rounded-full text-xs font-bold border ${getDifficultyBadgeClasses(
+                exercise.difficulty
+              )}`}
+            >
+              {formatDifficultyLabel(exercise.difficulty)}
+            </span>
+            <span className="px-3 py-1 rounded-full bg-[#E5E8CE] text-[#657565] border border-[#D2D9C5] text-xs font-mono">
+              {formatExerciseType(exercise.exerciseType)} • {exercise.forceType}
+            </span>
           </div>
 
-          <div className="bg-[#F1F2E8] border border-[#D2D9C5] rounded-2xl p-6 sm:p-7 space-y-5 shadow-sm">
-            <div>
-              <span className="text-xs font-bold uppercase tracking-wider text-[#173F35]">
-                Correct Movement Technique
-              </span>
-              <h2 className="text-xl sm:text-2xl font-extrabold font-display text-[#263B2D] mt-0.5">
-                Starting Position & Exercise Instructions
-              </h2>
-            </div>
-
-            <div className="p-4 rounded-xl bg-[#E5E8CE] border border-[#D2D9C5]">
-              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#173F35] mb-1">
-                <Compass className="w-4 h-4" />
-                <span>Starting Position</span>
-              </div>
-              <p className="text-xs sm:text-sm text-[#263B2D] leading-relaxed">
-                {exercise.startingPosition}
-              </p>
-            </div>
-
-            <div className="space-y-3">
-              {(exercise.instructions || []).map((step) => (
-                <div
-                  key={step.stepNumber}
-                  className="flex items-start gap-3.5 p-4 rounded-xl bg-white border border-[#D2D9C5]"
-                >
-                  <div className="w-7 h-7 rounded-lg bg-[#173F35] text-white font-mono text-xs font-extrabold flex items-center justify-center shrink-0 mt-0.5">
-                    {step.stepNumber}
-                  </div>
-                  <div className="space-y-1">
-                    <h3 className="text-sm sm:text-base font-bold text-[#263B2D]">
-                      {step.title}
-                    </h3>
-                    <p className="text-xs sm:text-sm text-[#657565] leading-relaxed">
-                      {step.instruction}
-                    </p>
-                    {step.coachingCue && (
-                      <p className="text-xs text-[#173F35] font-bold pt-0.5">
-                        Coaching Cue: &ldquo;{step.coachingCue}&rdquo;
-                      </p>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            <div className="bg-[#F1F2E8] border border-[#D2D9C5] rounded-2xl p-6 shadow-sm">
-              <div className="flex items-center gap-2 text-[#263B2D] font-bold text-base mb-3">
-                <AlertTriangle className="w-5 h-5 text-[#789575]" />
-                <h2>Common Mistakes</h2>
-              </div>
-              <ul className="space-y-2.5">
-                {(exercise.commonMistakes || []).map((mistake, idx) => (
-                  <li
-                    key={idx}
-                    className="flex items-start gap-2 text-xs sm:text-sm text-[#657565] leading-relaxed"
-                  >
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#789575] shrink-0 mt-2" />
-                    <span>{mistake}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            <div className="bg-[#F1F2E8] border border-[#D2D9C5] rounded-2xl p-6 shadow-sm">
-              <div className="flex items-center gap-2 text-[#173F35] font-bold text-base mb-3">
-                <ShieldCheck className="w-5 h-5" />
-                <h2>Safety Guidance</h2>
-              </div>
-              <ul className="space-y-2.5">
-                {(exercise.safetyTips || []).map((tip, idx) => (
-                  <li
-                    key={idx}
-                    className="flex items-start gap-2 text-xs sm:text-sm text-[#657565] leading-relaxed"
-                  >
-                    <CheckCircle2 className="w-4 h-4 text-[#173F35] shrink-0 mt-0.5" />
-                    <span>{tip}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
+          <h1 className="text-2xl sm:text-4xl font-extrabold font-display text-[#263B2D]">
+            {exercise.name}
+          </h1>
+          <p className="text-sm sm:text-base text-[#657565] mt-2 leading-relaxed max-w-4xl">
+            {exercise.description}
+          </p>
         </div>
 
-        <div className="lg:col-span-4 space-y-5 lg:sticky lg:top-20">
-          <div className="bg-[#F1F2E8] border border-[#D2D9C5] rounded-2xl p-6 shadow-sm">
-            <div className="flex items-center justify-between mb-3">
-              <div>
-                <span className="text-[11px] font-bold uppercase tracking-wider text-[#173F35]">
-                  Anatomical Target
-                </span>
-                <h2 className="text-lg font-bold text-[#263B2D]">
-                  Muscles Worked
-                </h2>
-              </div>
-              <Target className="w-5 h-5 text-[#173F35]" />
+        {/* Preserved Existing Video Demonstration Player */}
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-bold text-[#173F35]">
+            <span className="inline-flex items-center gap-1.5">
+              <Video className="w-4 h-4" />
+              <span>Video Demonstration • {exercise.name}</span>
+            </span>
+            {exercise.videoNotes && (
+              <span className="text-[#657565] font-medium">{exercise.videoNotes}</span>
+            )}
+          </div>
+          <ExerciseVisualDemo exercise={exercise} size="hero" />
+        </div>
+      </section>
+
+      {/* 3. STEP-BY-STEP VISUAL FORM SEQUENCE (FOUR IMAGE CARDS DIRECTLY BELOW VIDEO) */}
+      <div className="bg-[#F1F2E8] border border-[#D2D9C5] rounded-2xl p-6 sm:p-7 shadow-sm">
+        <FourStepVisualFormSequence
+          exercise={exercise}
+          showOpenGuideLink={true}
+          guideHref="#exercise-instructions"
+          guideLabel="Open Full Exercise Guide"
+        />
+      </div>
+
+      {/* 4. TARGET & SECONDARY MUSCLE INFORMATION + 5. EQUIPMENT INFORMATION */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        <div className="lg:col-span-7 bg-[#F1F2E8] border border-[#D2D9C5] rounded-2xl p-6 shadow-sm space-y-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#173F35]">
+                Anatomical Target
+              </span>
+              <h2 className="text-xl font-extrabold font-display text-[#263B2D]">
+                Target &amp; Secondary Muscles
+              </h2>
+            </div>
+            <Target className="w-5 h-5 text-[#173F35]" />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-12 gap-5 items-center">
+            <div className="sm:col-span-5">
+              <MiniMuscleDiagram
+                primaryMuscles={exercise.primaryMuscles}
+                secondaryMuscles={exercise.secondaryMuscles}
+                showBothSides={true}
+              />
             </div>
 
-            <MiniMuscleDiagram
-              primaryMuscles={exercise.primaryMuscles}
-              secondaryMuscles={exercise.secondaryMuscles}
-              showBothSides={true}
-            />
-
-            <div className="mt-4 space-y-2.5">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-[#173F35]">
-                Primary Muscle
+            <div className="sm:col-span-7 space-y-3">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-[#173F35] flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#18C978]" />
+                <span>Primary Target Muscle</span>
               </h3>
               {(exercise.primaryMuscles || []).map((pm) => (
                 <button
@@ -367,7 +273,7 @@ export default function ExerciseDetailPage() {
                     selectMuscle(pm.slug, pm.bodySide, exercise.category);
                     navigate('/exercises');
                   }}
-                  className="w-full p-3 rounded-xl bg-white hover:bg-[#E5E8CE] border border-[#D2D9C5] text-left transition-all"
+                  className="w-full p-3 rounded-xl bg-white hover:bg-[#E5E8CE] border border-[#D2D9C5] text-left transition-all cursor-pointer"
                 >
                   <div className="flex items-center justify-between text-xs font-bold text-[#263B2D]">
                     <span>
@@ -383,44 +289,278 @@ export default function ExerciseDetailPage() {
                   </p>
                   <div className="mt-2 w-full h-1.5 rounded-full bg-[#E5E8CE] overflow-hidden">
                     <div
-                      className="h-full bg-[#173F35]"
+                      className="h-full bg-[#18C978]"
                       style={{ width: `${pm.activationPercent || 95}%` }}
                     />
                   </div>
                 </button>
               ))}
-            </div>
 
-            {exercise.secondaryMuscles?.length > 0 && (
-              <div className="mt-4 pt-3.5 border-t border-[#D2D9C5] space-y-2">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-[#657565]">
-                  Secondary Muscles
-                </h3>
-                {exercise.secondaryMuscles.map((sm) => (
-                  <div
-                    key={sm.slug}
-                    className="p-2.5 rounded-xl bg-white border border-[#D2D9C5]"
-                  >
-                    <div className="flex items-center justify-between text-xs font-semibold text-[#263B2D]">
-                      <span>{sm.name}</span>
-                      <span className="text-[#657565] font-mono text-[11px]">
-                        {sm.activationPercent || 60}%
-                      </span>
+              {exercise.secondaryMuscles?.length > 0 && (
+                <div className="pt-2 space-y-2">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-[#657565] flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#76CBB3]" />
+                    <span>Secondary Muscles</span>
+                  </h3>
+                  {exercise.secondaryMuscles.map((sm) => (
+                    <div
+                      key={sm.slug}
+                      className="p-2.5 rounded-xl bg-white border border-[#D2D9C5]"
+                    >
+                      <div className="flex items-center justify-between text-xs font-semibold text-[#263B2D]">
+                        <span>{sm.name}</span>
+                        <span className="text-[#657565] font-mono text-[11px]">
+                          {sm.activationPercent || 60}%
+                        </span>
+                      </div>
+                      <div className="mt-1.5 w-full h-1 rounded-full bg-[#E5E8CE] overflow-hidden">
+                        <div
+                          className="h-full bg-[#76CBB3]"
+                          style={{ width: `${sm.activationPercent || 60}%` }}
+                        />
+                      </div>
                     </div>
-                    <div className="mt-1.5 w-full h-1 rounded-full bg-[#E5E8CE] overflow-hidden">
-                      <div
-                        className="h-full bg-[#789575]"
-                        style={{ width: `${sm.activationPercent || 60}%` }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
+        </div>
+
+        {/* 5. EQUIPMENT INFORMATION */}
+        <div className="lg:col-span-5 bg-[#F1F2E8] border border-[#D2D9C5] rounded-2xl p-6 shadow-sm space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#173F35]">
+                Gear &amp; Setup
+              </span>
+              <h2 className="text-xl font-extrabold font-display text-[#263B2D]">
+                Equipment Information
+              </h2>
+            </div>
+            <Dumbbell className="w-5 h-5 text-[#173F35]" />
+          </div>
+
+          <div className="space-y-2.5">
+            {(exercise.equipment && exercise.equipment.length > 0
+              ? exercise.equipment
+              : [
+                  {
+                    slug: 'bodyweight',
+                    name: 'Bodyweight',
+                    category: 'No Machine Required',
+                    description: 'Uses natural bodyweight resistance and spatial balance.',
+                  },
+                ]
+            ).map((eq) => (
+              <div
+                key={eq.slug || eq.name}
+                className="p-3.5 rounded-xl bg-white border border-[#D2D9C5] space-y-1"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm font-bold text-[#263B2D]">{eq.name}</span>
+                  {eq.category && (
+                    <span className="px-2 py-0.5 rounded-full bg-[#E5E8CE] text-[10px] font-bold text-[#173F35]">
+                      {eq.category}
+                    </span>
+                  )}
+                </div>
+                {eq.description && (
+                  <p className="text-xs text-[#657565] leading-relaxed">
+                    {eq.description}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {exercise.movementDifferences && (
+            <div className="p-3.5 rounded-xl bg-white border border-[#D2D9C5] space-y-1">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#173F35]">
+                Biomechanical Advantage
+              </span>
+              <p className="text-xs text-[#657565] leading-relaxed">
+                {exercise.movementDifferences}
+              </p>
+            </div>
+          )}
         </div>
       </div>
 
+      {/* 6. EXERCISE INSTRUCTIONS (FULL 4-STEP BREAKDOWN) */}
+      <section
+        id="exercise-instructions"
+        className="bg-[#F1F2E8] border border-[#D2D9C5] rounded-2xl p-6 sm:p-7 space-y-5 shadow-sm"
+      >
+        <div>
+          <span className="text-xs font-bold uppercase tracking-wider text-[#173F35]">
+            Correct Movement Technique
+          </span>
+          <h2 className="text-xl sm:text-2xl font-extrabold font-display text-[#263B2D] mt-0.5">
+            Starting Position &amp; Complete 4-Step Exercise Instructions
+          </h2>
+        </div>
+
+        <div className="p-4 rounded-xl bg-[#E5E8CE] border border-[#D2D9C5]">
+          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#173F35] mb-1">
+            <Compass className="w-4 h-4" />
+            <span>Starting Position</span>
+          </div>
+          <p className="text-xs sm:text-sm text-[#263B2D] leading-relaxed">
+            {exercise.startingPosition}
+          </p>
+        </div>
+
+        <div className="space-y-3">
+          {[1, 2, 3, 4].map((stepNum) => {
+            const step = (exercise.instructions || []).find(
+              (s) => Number(s.stepNumber) === stepNum
+            );
+            const stepImage = exercise.instructionImages?.[stepNum] || null;
+            if (!step && !stepImage) return null;
+            const stepTitle =
+              step?.title || STEP_ROLE_LABELS[stepNum] || `Step ${stepNum}`;
+
+            return (
+              <div
+                key={stepNum}
+                className="flex flex-col sm:flex-row items-start gap-4 p-4 rounded-xl bg-white border border-[#D2D9C5]"
+              >
+                <div className="flex items-start gap-3.5 flex-1 min-w-0">
+                  <div className="w-7 h-7 rounded-lg bg-[#173F35] text-white font-mono text-xs font-extrabold flex items-center justify-center shrink-0 mt-0.5">
+                    0{stepNum}
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="text-sm sm:text-base font-bold text-[#263B2D]">
+                      {stepTitle}
+                    </h3>
+                    {step?.instruction && (
+                      <p className="text-xs sm:text-sm text-[#657565] leading-relaxed">
+                        {step.instruction}
+                      </p>
+                    )}
+                    {step?.coachingCue && (
+                      <p className="text-xs text-[#173F35] font-bold pt-0.5">
+                        Coaching Cue: &ldquo;{step.coachingCue}&rdquo;
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {stepImage && (
+                  <div className="w-full sm:w-48 shrink-0">
+                    <SecureInstructionImage
+                      mediaItem={stepImage}
+                      exerciseName={exercise.name}
+                      stepNumber={stepNum}
+                      stepTitle={stepTitle}
+                      className="w-full h-32"
+                    />
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* 7. COMMON MISTAKES & 8. SAFETY TIPS */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <section className="bg-[#F1F2E8] border border-[#D2D9C5] rounded-2xl p-6 shadow-sm">
+          <div className="flex items-center gap-2 text-[#263B2D] font-bold text-base mb-3">
+            <AlertTriangle className="w-5 h-5 text-[#789575]" />
+            <h2>Common Mistakes</h2>
+          </div>
+          <ul className="space-y-2.5">
+            {(exercise.commonMistakes || []).map((mistake, idx) => (
+              <li
+                key={idx}
+                className="flex items-start gap-2 text-xs sm:text-sm text-[#657565] leading-relaxed"
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-[#789575] shrink-0 mt-2" />
+                <span>{mistake}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <section className="bg-[#F1F2E8] border border-[#D2D9C5] rounded-2xl p-6 shadow-sm">
+          <div className="flex items-center gap-2 text-[#173F35] font-bold text-base mb-3">
+            <ShieldCheck className="w-5 h-5" />
+            <h2>Safety Tips &amp; Guidance</h2>
+          </div>
+          <ul className="space-y-2.5">
+            {(exercise.safetyTips || []).map((tip, idx) => (
+              <li
+                key={idx}
+                className="flex items-start gap-2 text-xs sm:text-sm text-[#657565] leading-relaxed"
+              >
+                <CheckCircle2 className="w-4 h-4 text-[#173F35] shrink-0 mt-0.5" />
+                <span>{tip}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      </div>
+
+      {/* 9. SETS AND REPETITIONS */}
+      <section className="bg-[#F1F2E8] border border-[#D2D9C5] rounded-2xl p-6 shadow-sm space-y-4">
+        <div>
+          <span className="text-[11px] font-bold uppercase tracking-wider text-[#173F35]">
+            Training Prescription
+          </span>
+          <h2 className="text-xl font-extrabold font-display text-[#263B2D]">
+            Recommended Sets, Repetitions &amp; Rest
+          </h2>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="p-3.5 rounded-xl bg-white border border-[#D2D9C5]">
+            <div className="flex items-center gap-1.5 text-xs text-[#657565] mb-1">
+              <Layers className="w-3.5 h-3.5 text-[#173F35]" />
+              <span>Recommended Sets</span>
+            </div>
+            <p className="text-base font-extrabold text-[#263B2D]">
+              {exercise.recommendedSets}
+            </p>
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-white border border-[#D2D9C5]">
+            <div className="flex items-center gap-1.5 text-xs text-[#657565] mb-1">
+              <Repeat className="w-3.5 h-3.5 text-[#173F35]" />
+              <span>Repetitions</span>
+            </div>
+            <p className="text-base font-extrabold text-[#173F35]">
+              {exercise.recommendedReps}
+            </p>
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-white border border-[#D2D9C5]">
+            <div className="flex items-center gap-1.5 text-xs text-[#657565] mb-1">
+              <Clock className="w-3.5 h-3.5 text-[#173F35]" />
+              <span>Rest Guidance</span>
+            </div>
+            <p className="text-base font-extrabold text-[#263B2D]">
+              {exercise.restDuration}
+            </p>
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-white border border-[#D2D9C5]">
+            <div className="flex items-center gap-1.5 text-xs text-[#657565] mb-1">
+              <Dumbbell className="w-3.5 h-3.5 text-[#173F35]" />
+              <span>Mechanics</span>
+            </div>
+            <p className="text-sm font-bold text-[#263B2D]">
+              {formatExerciseType(exercise.exerciseType)} ({exercise.forceType})
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Interactive Perform Workout Studio */}
+      <ExerciseWorkoutSimulator exercise={exercise} />
+
+      {/* Similar Movements */}
       {exercise.similarExercises?.length > 0 && (
         <section className="pt-6 border-t border-[#D2D9C5]">
           <div className="flex items-center justify-between mb-5">

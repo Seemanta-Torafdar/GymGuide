@@ -24,6 +24,15 @@ async function bootstrap() {
   const httpAdapter = app.getHttpAdapter().getInstance();
   httpAdapter.disable('x-powered-by');
 
+  // Support both /api/media/* and /api/v1/media/* seamlessly without breaking v1 routes
+  const apiPrefixNormalized = `/${String(APP_CONFIG.API_PREFIX || 'api/v1').replace(/^\/+|\/+$/g, '')}`;
+  httpAdapter.use((req, _res, next) => {
+    if (req.url === '/api/media' || req.url.startsWith('/api/media/') || req.url.startsWith('/api/media?')) {
+      req.url = req.url.replace(/^\/api\/media/, `${apiPrefixNormalized}/media`);
+    }
+    next();
+  });
+
   // Ensure local video uploads directory exists and serve /uploads statically
   const uploadsPath = path.resolve(process.cwd(), 'uploads');
   if (!fs.existsSync(uploadsPath)) {
@@ -40,15 +49,20 @@ async function bootstrap() {
     })
   );
 
-  // 1. Request Body Size Limits (50MB for Admin Video File upload, 100KB for standard API routes)
+  // 1. Request Body Size Limits (75MB for base64-encoded 40MB Admin Video upload, 100KB for standard API routes)
   const standardLimitStr = `${APP_CONFIG.BODY_LIMIT_KB}kb`;
-  app.use('/api/v1/exercises/:id/video-file', express.json({ limit: '50mb' }));
+  app.use('/api/v1/exercises/:id/video-file', express.json({ limit: '75mb' }));
   app.use(express.json({ limit: standardLimitStr }));
   app.use(express.urlencoded({ extended: true, limit: standardLimitStr }));
   app.use(cookieParser());
   app.use(compression());
 
-  // 2. Secure HTTP Headers via Helmet (allowing self & embedded demonstration videos)
+  // 2. Secure HTTP Headers via Helmet (allowing self, MinIO presigned endpoints & embedded videos)
+  const extraMediaOrigins = [
+    APP_CONFIG.MINIO_PUBLIC_ENDPOINT,
+    APP_CONFIG.MINIO_INTERNAL_ENDPOINT,
+  ].filter((origin) => typeof origin === 'string' && origin.startsWith('http'));
+
   app.use(
     helmet({
       contentSecurityPolicy: {
@@ -56,10 +70,10 @@ async function bootstrap() {
           defaultSrc: ["'self'"],
           scriptSrc: ["'self'", "'unsafe-inline'"],
           styleSrc: ["'self'", "'unsafe-inline'"],
-          imgSrc: ["'self'", 'data:', 'blob:', 'https:'],
-          mediaSrc: ["'self'", 'data:', 'blob:', 'https:', 'http:'],
+          imgSrc: ["'self'", 'data:', 'blob:', 'https:', ...extraMediaOrigins],
+          mediaSrc: ["'self'", 'data:', 'blob:', 'https:', 'http:', ...extraMediaOrigins],
           frameSrc: ["'self'", 'https://www.youtube.com', 'https://www.youtube-nocookie.com', 'https://player.vimeo.com'],
-          connectSrc: ["'self'"],
+          connectSrc: ["'self'", ...extraMediaOrigins],
           frameAncestors: ["'none'"],
         },
       },
@@ -99,6 +113,8 @@ async function bootstrap() {
     require('./modules/search/search.module').SearchController,
     require('./modules/auth/auth.module').AuthController,
     require('./modules/users/users.module').UsersController,
+    require('./modules/media/media.module').MediaController ||
+      require('./modules/media/media.controller').MediaController,
   ];
   for (const Ctrl of controllers) {
     if (!Ctrl || !Ctrl.prototype) continue;

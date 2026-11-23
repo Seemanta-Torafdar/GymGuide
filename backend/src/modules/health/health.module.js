@@ -5,21 +5,26 @@
 const { Controller, Get, Dependencies, Module } = require('@nestjs/common');
 const { ApiTags, ApiOperation } = require('@nestjs/swagger');
 const { PrismaService } = require('../../database/prisma.service');
+const { MinioStorageService } = require('../media/minio-storage.service');
 
 @ApiTags('Health')
 @Controller('health')
-@Dependencies(PrismaService)
+@Dependencies(PrismaService, MinioStorageService)
 class HealthController {
-  constructor(prismaService) {
+  constructor(prismaService, minioStorage) {
     this.prisma = prismaService;
+    this.minio = minioStorage;
   }
 
   @Get()
-  @ApiOperation({ summary: 'Check API health, uptime, and database status' })
+  @ApiOperation({ summary: 'Check API health, uptime, PostgreSQL & MinIO storage status' })
   async checkHealth() {
     const exercises = await this.prisma.getAllExercisesFormatted();
     const muscles = await this.prisma.getAllMusclesFormatted();
     const plans = await this.prisma.getAllWorkoutPlansFormatted();
+    const storage = this.minio
+      ? await this.minio.getHealthStatus()
+      : { engine: 'minio', configured: false, connected: false };
 
     return {
       status: 'ok',
@@ -34,6 +39,7 @@ class HealthController {
           workoutPlans: plans.length,
         },
       },
+      storage,
       uptimeSeconds: Math.floor(process.uptime()),
       environment: process.env.NODE_ENV || 'development',
     };

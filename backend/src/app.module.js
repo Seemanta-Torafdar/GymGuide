@@ -13,6 +13,7 @@ const { WorkoutPlansModule } = require('./modules/workout-plans/workout-plans.mo
 const { SearchModule } = require('./modules/search/search.module');
 const { AuthModule } = require('./modules/auth/auth.module');
 const { UsersModule } = require('./modules/users/users.module');
+const { MediaModule } = require('./modules/media/media.module');
 const { RateLimitGuard } = require('./guards/rate-limit.guard');
 const { AllExceptionsFilter } = require('./filters/all-exceptions.filter');
 const { ResponseTransformInterceptor } = require('./interceptors/response-transform.interceptor');
@@ -20,6 +21,7 @@ const { ResponseTransformInterceptor } = require('./interceptors/response-transf
 @Module({
   imports: [
     PrismaModule,
+    MediaModule,
     HealthModule,
     MuscleGroupsModule,
     ExercisesModule,

@@ -43,8 +43,13 @@ class RateLimitGuard {
 
     const pathUrl = req.originalUrl || req.url || '';
     const isAuthRoute = pathUrl.includes('/auth/');
-    const limit = isAuthRoute ? this.authMaxRequests : this.maxRequests;
-    const bucketKey = `${ip}:${isAuthRoute ? 'auth' : 'api'}`;
+    const isMediaStreamRoute = pathUrl.includes('/media/') && pathUrl.includes('/stream');
+    const limit = isAuthRoute
+      ? this.authMaxRequests
+      : isMediaStreamRoute
+      ? Math.max(600, this.maxRequests * 4)
+      : this.maxRequests;
+    const bucketKey = `${ip}:${isAuthRoute ? 'auth' : isMediaStreamRoute ? 'stream' : 'api'}`;
 
     const now = Date.now();
     let record = this.buckets.get(bucketKey);

@@ -2,9 +2,6 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Dumbbell,
-  ArrowRight,
-  CheckCircle2,
-  Layers,
   Filter,
   Play,
   Heart,
@@ -30,7 +27,6 @@ export function MuscleExplorerSection({ showFullExerciseGrid = true }) {
     muscles,
     selectedMuscleSlug,
     selectedSubMuscleId,
-    setSelectedSubMuscleId,
     hasActiveSelection,
     selectMuscle,
     clearMuscleSelection,
@@ -43,7 +39,6 @@ export function MuscleExplorerSection({ showFullExerciseGrid = true }) {
   const [muscleDetail, setMuscleDetail] = useState(null);
   const [roleFilter, setRoleFilter] = useState('ALL');
   const [equipmentFilter, setEquipmentFilter] = useState('ALL');
-  const [exactHeadOnly, setExactHeadOnly] = useState(false);
   const [loadingMuscle, setLoadingMuscle] = useState(false);
 
   const [activeExerciseSlug, setActiveExerciseSlug] = useState(null);
@@ -92,11 +87,6 @@ export function MuscleExplorerSection({ showFullExerciseGrid = true }) {
   const activeMuscle = muscleDetail?.muscle;
   const primaryExercises = muscleDetail?.primaryExercises || [];
   const secondaryExercises = muscleDetail?.secondaryExercises || [];
-  const synergistMuscles = muscleDetail?.synergistMuscles || [];
-  const synergistSlugs = useMemo(
-    () => synergistMuscles.map((s) => s.slug),
-    [synergistMuscles]
-  );
 
   // Exercises matching selected role (All / Primary / Secondary) and prioritized by sub-muscle head
   const selectedSubMuscleMeta = selectedSubMuscleId
@@ -123,11 +113,8 @@ export function MuscleExplorerSection({ showFullExerciseGrid = true }) {
       }
     }
 
-    if (exactHeadOnly && headMatches.length > 0) {
-      return headMatches;
-    }
     return [...headMatches, ...otherGroup];
-  }, [roleFilter, primaryExercises, secondaryExercises, selectedSubMuscleId, exactHeadOnly]);
+  }, [roleFilter, primaryExercises, secondaryExercises, selectedSubMuscleId]);
 
   // Dynamically discover ALL equipment usable for this body part / muscle
   const availableEquipmentOptions = useMemo(() => {
@@ -230,7 +217,6 @@ export function MuscleExplorerSection({ showFullExerciseGrid = true }) {
         hasActiveSelection={hasActiveSelection}
         onClearSelection={clearMuscleSelection}
         onSelectMuscle={(slug, side, category, subId) => {
-          setExactHeadOnly(false);
           selectMuscle(slug, side, category, subId);
         }}
         viewMode={bodyView}
@@ -241,117 +227,11 @@ export function MuscleExplorerSection({ showFullExerciseGrid = true }) {
         }
       />
 
-      {/* STEP 2: Clicked Body Part Details + Equipment Options + Related Exercises */}
+      {/* STEP 2: Equipment Options + Related Exercises for Clicked Muscle */}
       <div
         ref={workoutListRef}
-        className="scroll-mt-20 grid grid-cols-1 lg:grid-cols-12 gap-5 items-start"
+        className="scroll-mt-20 bg-[#F1F2E8] border border-[#D2D9C5] rounded-2xl p-5 space-y-4 shadow-sm"
       >
-        {/* LEFT 4 COLS: Clicked Body Part Profile Card */}
-        <div className="lg:col-span-4 bg-[#F1F2E8] border border-[#D2D9C5] rounded-2xl p-5 shadow-sm space-y-4">
-          {loadingMuscle && !activeMuscle ? (
-            <div className="animate-pulse space-y-3">
-              <div className="h-6 w-48 bg-[#E5E8CE] rounded" />
-              <div className="h-14 w-full bg-[#E5E8CE] rounded-xl" />
-            </div>
-          ) : activeMuscle ? (
-            <div className="space-y-3.5">
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <div>
-                  <span className="inline-block px-2.5 py-0.5 rounded-full bg-[#173F35] text-white text-[10px] font-bold uppercase tracking-wider mb-1.5">
-                    {selectedSubMuscleMeta ? 'Selected Muscle Head' : 'Selected Body Part'}
-                  </span>
-                  <h2 className="text-2xl font-extrabold font-display text-[#263B2D]">
-                    {selectedSubMuscleMeta ? selectedSubMuscleMeta.name : activeMuscle.name}
-                  </h2>
-                  <p className="text-xs font-mono text-[#657565]">
-                    {activeMuscle.scientificName}
-                  </p>
-                </div>
-              </div>
-
-              {selectedSubMuscleMeta && (
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => setExactHeadOnly((prev) => !prev)}
-                    className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all ${
-                      exactHeadOnly
-                        ? 'bg-[#DC2626] text-white border-[#DC2626]'
-                        : 'bg-white text-[#263B2D] border-[#D2D9C5] hover:border-[#DC2626]'
-                    }`}
-                  >
-                    {exactHeadOnly
-                      ? `Showing ${selectedSubMuscleMeta.shortName} Focus`
-                      : `Filter Only ${selectedSubMuscleMeta.shortName}`}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedSubMuscleId(null);
-                      setExactHeadOnly(false);
-                    }}
-                    className="px-2.5 py-1 rounded-lg bg-[#E5E8CE] border border-[#D2D9C5] text-[11px] font-bold text-[#173F35] hover:bg-[#789575] hover:text-white transition-colors"
-                  >
-                    Whole {activeMuscle.name}
-                  </button>
-                </div>
-              )}
-
-              <div className="flex items-center gap-2 text-xs font-bold">
-                <span className="px-2.5 py-1 rounded-lg bg-[#E5E8CE] border border-[#D2D9C5] text-[#173F35]">
-                  {primaryExercises.length} Primary Exercises
-                </span>
-                <span className="px-2.5 py-1 rounded-lg bg-white border border-[#D2D9C5] text-[#657565]">
-                  {availableEquipmentOptions.length} Equipment Types
-                </span>
-              </div>
-
-              <p className="text-xs sm:text-sm text-[#657565] leading-relaxed">
-                {activeMuscle.shortDescription}{' '}
-                <strong className="text-[#263B2D]">Function:</strong>{' '}
-                {activeMuscle.anatomicalFunction}
-              </p>
-
-              <div className="p-3 rounded-xl bg-[#E5E8CE] border border-[#D2D9C5] flex items-start gap-2 text-xs text-[#263B2D]">
-                <CheckCircle2 className="w-4 h-4 text-[#173F35] shrink-0 mt-0.5" />
-                <span>
-                  <strong className="text-[#173F35]">Smart Tip:</strong>{' '}
-                  {activeMuscle.trainingTip}
-                </span>
-              </div>
-
-              {synergistMuscles.length > 0 && (
-                <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                  <span className="text-[11px] text-[#657565] mr-1 inline-flex items-center gap-1 font-semibold">
-                    <Layers className="w-3 h-3 text-[#789575]" />
-                    Co-Active Muscles:
-                  </span>
-                  {synergistMuscles.map((syn) => (
-                    <button
-                      key={syn.slug}
-                      type="button"
-                      onClick={() => selectMuscle(syn.slug, syn.bodySide)}
-                      className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-white hover:bg-[#789575] border border-[#D2D9C5] text-[11px] font-semibold text-[#263B2D] hover:text-white transition-colors"
-                    >
-                      <span>{syn.name}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              <Link
-                to={`/exercises?muscle=${activeMuscle.slug}`}
-                className="w-full inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-[#E5E8CE] hover:bg-[#789575] text-xs font-bold text-[#263B2D] hover:text-white border border-[#D2D9C5] transition-colors"
-              >
-                <span>Browse All {activeMuscle.name} in Library</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </Link>
-            </div>
-          ) : null}
-        </div>
-
-        {/* RIGHT 8 COLS: Available Equipment + Exercise Cards for Clicked Muscle */}
-        <div className="lg:col-span-8 bg-[#F1F2E8] border border-[#D2D9C5] rounded-2xl p-5 space-y-4 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <span className="text-[11px] font-bold uppercase tracking-wider text-[#173F35]">
@@ -440,7 +320,13 @@ export function MuscleExplorerSection({ showFullExerciseGrid = true }) {
           </div>
 
           {/* Interactive Exercise Grid — Click Any Exercise to Load Into Perform Workout Simulator */}
-          {visibleExercises.length > 0 ? (
+          {loadingMuscle && visibleExercises.length === 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 pt-1 animate-pulse">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="h-52 rounded-2xl bg-[#E5E8CE] border border-[#D2D9C5]" />
+              ))}
+            </div>
+          ) : visibleExercises.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 pt-1">
               {visibleExercises.map((exercise) => {
                 const isActive = activeExercise?.slug === exercise.slug;
@@ -574,7 +460,6 @@ export function MuscleExplorerSection({ showFullExerciseGrid = true }) {
               </button>
             </div>
           )}
-        </div>
       </div>
 
       {/* STEP 3: INTERACTIVE WORKOUT PERFORMER, STEP FORM IMAGES & LIVE MUSCLE HIT RATING */}

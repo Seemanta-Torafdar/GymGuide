@@ -10,7 +10,14 @@ const bcrypt = require('bcryptjs');
 const { MUSCLE_GROUPS, MUSCLES, EQUIPMENT } = require('./data/muscles-equipment');
 const { UPPER_BODY_EXERCISES } = require('./data/exercises-upper');
 const { LOWER_CORE_EXERCISES } = require('./data/exercises-lower-core');
+const fs = require('fs');
+const path = require('path');
 const { WORKOUT_PLANS } = require('./data/workout-plans');
+const distFourStepPath = path.resolve(__dirname, '../dist/common/four-step-sequence.util.js');
+const srcFourStepPath = path.resolve(__dirname, '../src/common/four-step-sequence.util.js');
+const { buildFourStepInstructions } = require(
+  fs.existsSync(srcFourStepPath) ? srcFourStepPath : distFourStepPath
+);
 
 const ALL_EXERCISES = [...UPPER_BODY_EXERCISES, ...LOWER_CORE_EXERCISES];
 
@@ -165,7 +172,21 @@ async function seedDatabase(prismaClient) {
         }
       }
 
-      for (const step of ex.instructions || []) {
+      const fourSteps = buildFourStepInstructions({
+        ...ex,
+        primaryMuscles: (ex.primaryMuscles || []).map((pm) => ({
+          name: MUSCLES.find((m) => m.slug === pm.muscleSlug)?.name || pm.muscleSlug,
+          bodySide: MUSCLES.find((m) => m.slug === pm.muscleSlug)?.bodySide || 'FRONT',
+        })),
+        secondaryMuscles: (ex.secondaryMuscles || []).map((sm) => ({
+          name: MUSCLES.find((m) => m.slug === sm.muscleSlug)?.name || sm.muscleSlug,
+        })),
+        equipment: (ex.equipmentSlugs || []).map((eqSlug) => ({
+          name: EQUIPMENT.find((eq) => eq.slug === eqSlug)?.name || eqSlug,
+        })),
+      });
+
+      for (const step of fourSteps) {
         await prisma.exerciseInstruction.create({
           data: {
             exerciseId: exRecord.id,
@@ -241,7 +262,7 @@ async function seedDatabase(prismaClient) {
     }
     console.log(`✅ Seeded ${WORKOUT_PLANS.length} structured beginner workout plans.`);
 
-    // 6. Seed Default Demo User (Optional User Auth)
+    // 6. Seed Default Demo User (Optional User Auth) & Configured Admin Account
     const demoPasswordHash = await bcrypt.hash('GymGuideLearner#2026', 12);
     await prisma.user.upsert({
       where: { email: 'learner@gymguide.local' },
@@ -254,6 +275,27 @@ async function seedDatabase(prismaClient) {
         role: 'USER',
       },
     });
+
+    const seedAdminEmail = (process.env.SEED_ADMIN_EMAIL || '').trim().toLowerCase();
+    const seedAdminPassword = process.env.SEED_ADMIN_PASSWORD || '';
+    if (seedAdminEmail && seedAdminPassword && !seedAdminPassword.includes('CHANGE_ME') && !seedAdminPassword.includes('__INJECT_VIA_SECRET_MANAGER__')) {
+      const adminHash = await bcrypt.hash(seedAdminPassword, 12);
+      await prisma.user.upsert({
+        where: { email: seedAdminEmail },
+        update: {
+          passwordHash: adminHash,
+          role: 'ADMIN',
+        },
+        create: {
+          id: 'usr-admin-studio',
+          email: seedAdminEmail,
+          passwordHash: adminHash,
+          displayName: 'GymGuide Admin',
+          role: 'ADMIN',
+        },
+      });
+      console.log(`✅ Seeded Admin studio account (${seedAdminEmail}).`);
+    }
     console.log('🎉 GymGuide database seed completed successfully!');
   } finally {
     if (!prismaClient) {

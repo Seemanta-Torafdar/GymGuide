@@ -21,7 +21,7 @@ import { useGymGuide } from '../../context/GymGuideContext';
  * - Equipment pill chips in #E5E8CE
  * - Soft sage difficulty badge on bottom-left + arrow on bottom-right
  */
-export function ExerciseCard({ exercise, onQuickPreview }) {
+export function ExerciseCard({ exercise, onQuickPreview, onPerformInStudio }) {
   const { isExerciseSaved, toggleSavedExercise } = useGymGuide();
 
   if (!exercise) return null;
@@ -30,8 +30,12 @@ export function ExerciseCard({ exercise, onQuickPreview }) {
 
   const equipmentList =
     exercise.equipment && exercise.equipment.length > 0
-      ? exercise.equipment.map((eq) =>
-          getEquipmentDisplayLabel(eq.slug || eq.name || 'bodyweight')
+      ? Array.from(
+          new Set(
+            exercise.equipment.map((eq) =>
+              getEquipmentDisplayLabel(eq.slug || eq.name || 'bodyweight')
+            )
+          )
         )
       : ['Bodyweight'];
 
@@ -94,6 +98,15 @@ export function ExerciseCard({ exercise, onQuickPreview }) {
           </span>
 
           <div className="flex items-center gap-2">
+            {onPerformInStudio && (
+              <button
+                type="button"
+                onClick={() => onPerformInStudio(exercise)}
+                className="px-2.5 py-1 rounded-full bg-[#173F35] hover:bg-[#789575] text-white text-[11px] font-bold transition-colors"
+              >
+                Perform
+              </button>
+            )}
             {onQuickPreview && (
               <button
                 type="button"

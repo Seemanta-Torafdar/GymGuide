@@ -47,7 +47,22 @@ apiClient.interceptors.response.use(
     }
     return { success: true, data: body };
   },
-  (error) => {
+  async (error) => {
+    const config = error?.config;
+    const status = error?.response?.status;
+    const isIdempotentGet = (config?.method || 'get').toLowerCase() === 'get';
+    const isTransientProxyOrStartup = !status || status === 502 || status === 503 || status === 504;
+
+    if (config && isIdempotentGet && isTransientProxyOrStartup) {
+      config.__retryCount = config.__retryCount || 0;
+      if (config.__retryCount < 3) {
+        config.__retryCount += 1;
+        const delayMs = 300 * config.__retryCount;
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+        return apiClient.request(config);
+      }
+    }
+
     const message =
       error?.response?.data?.message ||
       error?.message ||
@@ -193,7 +208,8 @@ export const gymGuideApi = {
   async uploadExerciseVideoFile(idOrSlug, payload) {
     const res = await apiClient.post(
       `/exercises/${encodeURIComponent(idOrSlug)}/video-file`,
-      payload
+      payload,
+      { timeout: 120000 }
     );
     clearApiCache();
     return res.data;
@@ -202,6 +218,119 @@ export const gymGuideApi = {
   async removeExerciseVideo(idOrSlug) {
     const res = await apiClient.delete(
       `/exercises/${encodeURIComponent(idOrSlug)}/video`
+    );
+    clearApiCache();
+    return res.data;
+  },
+
+  // --- AUTHENTICATION ENDPOINTS (HttpOnly Cookies) ---
+  async login(email, password) {
+    const res = await apiClient.post('/auth/login', { email, password });
+    return res.data;
+  },
+
+  async getMe() {
+    const res = await apiClient.get('/auth/me');
+    return res.data;
+  },
+
+  async logout() {
+    const res = await apiClient.post('/auth/logout');
+    clearApiCache();
+    return res.data;
+  },
+
+  // --- MINIO OBJECT STORAGE MEDIA ENDPOINTS ---
+  async getMediaStatus() {
+    const res = await apiClient.get('/media/status');
+    return res.data;
+  },
+
+  async getMediaOverview() {
+    const res = await apiClient.get('/media/overview');
+    return res.data;
+  },
+
+  async getExerciseMedia(exerciseIdOrSlug) {
+    const res = await apiClient.get(
+      `/media/exercise/${encodeURIComponent(exerciseIdOrSlug)}`
+    );
+    return res.data;
+  },
+
+  async getSignedMediaUrl(mediaId, expiresIn) {
+    const res = await apiClient.get(
+      `/media/${encodeURIComponent(mediaId)}/url`,
+      expiresIn ? { params: { expiresIn } } : undefined
+    );
+    return res.data;
+  },
+
+  async uploadMediaFile({
+    file,
+    exerciseSlug,
+    mediaType,
+    stepNumber,
+    angle = 'front',
+    targetMusclePart = '',
+    notes = '',
+  }) {
+    const formData = new FormData();
+    formData.append('exerciseSlug', exerciseSlug);
+    formData.append('mediaType', mediaType);
+    if (stepNumber !== undefined && stepNumber !== null) {
+      formData.append('stepNumber', String(stepNumber));
+    }
+    if (angle) formData.append('angle', angle);
+    if (targetMusclePart) formData.append('targetMusclePart', targetMusclePart);
+    if (notes) formData.append('notes', notes);
+    formData.append('file', file);
+
+    const res = await apiClient.post('/media/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 120000,
+    });
+    clearApiCache();
+    return res.data;
+  },
+
+  async uploadMultipleMediaFiles({
+    files,
+    items,
+    exerciseSlug,
+    angle = 'front',
+    targetMusclePart = '',
+    notes = '',
+  }) {
+    const formData = new FormData();
+    formData.append('exerciseSlug', exerciseSlug);
+    formData.append('angle', angle);
+    if (targetMusclePart) formData.append('targetMusclePart', targetMusclePart);
+    if (notes) formData.append('notes', notes);
+    if (items) formData.append('items', JSON.stringify(items));
+    for (const file of files) {
+      formData.append('files', file);
+    }
+
+    const res = await apiClient.post('/media/upload-multiple', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 180000,
+    });
+    clearApiCache();
+    return res.data;
+  },
+
+  async deleteMediaItem(mediaId) {
+    const res = await apiClient.delete(`/media/${encodeURIComponent(mediaId)}`);
+    clearApiCache();
+    return res.data;
+  },
+
+  async migrateMediaToMinio(overwriteExisting = false) {
+    const res = await apiClient.post(
+      '/media/migrate',
+      { overwriteExisting },
+      { timeout: 180000 }
     );
     clearApiCache();
     return res.data;

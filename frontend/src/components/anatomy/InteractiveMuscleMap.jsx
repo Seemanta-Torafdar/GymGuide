@@ -73,7 +73,8 @@ function MuscleGroupLineIcon({ groupId }) {
 const CHARACTER_MUSCLE_GROUPS = [
   { id: 'chest', label: 'Chest', slug: 'chest', side: 'FRONT' },
   { id: 'shoulders', label: 'Shoulders', slug: 'front-deltoids', side: 'FRONT' },
-  { id: 'back', label: 'Back', slug: 'latissimus-dorsi', side: 'BACK' },
+  { id: 'back', label: 'Full Lats & Back', slug: 'latissimus-dorsi', side: 'BACK' },
+  { id: 'lower-back', label: 'Lower Back', slug: 'lower-back', side: 'BACK', subMuscleId: 'lower-back-erectors' },
   { id: 'arms', label: 'Arms (Biceps / Triceps)', slug: 'triceps', side: 'BACK' },
   { id: 'abs', label: 'Abs & Core', slug: 'rectus-abdominis', side: 'FRONT' },
   { id: 'legs', label: 'Legs', slug: 'quadriceps', side: 'FRONT' },
@@ -81,7 +82,7 @@ const CHARACTER_MUSCLE_GROUPS = [
 ];
 
 /**
- * Uniform Skin-Tone 3D Character Map with Precision Sub-Muscle Red Staining
+ * Uniform Skin-Tone 3D Character Map with Pixel-Verified Sub-Muscle Red Staining
  * - Before clicking/hovering (`!hasActiveSelection && !hoveredRegion`), every muscle stays natural uniform skin tone.
  * - Hovering or clicking any exact muscle/head (e.g. Triceps Long Head, Quadriceps VMO) stains ONLY that exact
  *   3D muscle belly in rich crimson red using feathered SVG `color` + `multiply` blending (no boxed borders).
@@ -173,7 +174,6 @@ export function InteractiveMuscleMap({
 
   const subMusclesForActiveParent = useMemo(() => {
     if (!hasActiveSelection) return [];
-    // When Arms group is selected cleanly, show both biceps/triceps/forearm heads if triceps or biceps
     if (selectedMuscleSlug === 'triceps' || selectedMuscleSlug === 'biceps') {
       return [
         ...getSubMusclesForParentSlug('triceps'),
@@ -186,6 +186,13 @@ export function InteractiveMuscleMap({
         ...getSubMusclesForParentSlug('rear-deltoids'),
       ];
     }
+    if (['latissimus-dorsi', 'trapezius', 'lower-back'].includes(selectedMuscleSlug)) {
+      return [
+        ...getSubMusclesForParentSlug('latissimus-dorsi'),
+        ...getSubMusclesForParentSlug('trapezius'),
+        ...getSubMusclesForParentSlug('lower-back'),
+      ];
+    }
     return getSubMusclesForParentSlug(selectedMuscleSlug);
   }, [hasActiveSelection, selectedMuscleSlug]);
 
@@ -193,7 +200,8 @@ export function InteractiveMuscleMap({
     if (!hasActiveSelection) return null;
     if (selectedMuscleSlug === 'chest') return 'chest';
     if (['front-deltoids', 'rear-deltoids'].includes(selectedMuscleSlug)) return 'shoulders';
-    if (['latissimus-dorsi', 'trapezius', 'lower-back'].includes(selectedMuscleSlug)) return 'back';
+    if (['latissimus-dorsi', 'trapezius'].includes(selectedMuscleSlug)) return 'back';
+    if (selectedMuscleSlug === 'lower-back') return 'lower-back';
     if (['biceps', 'triceps', 'forearms'].includes(selectedMuscleSlug)) return 'arms';
     if (['rectus-abdominis', 'obliques'].includes(selectedMuscleSlug)) return 'abs';
     if (['quadriceps', 'hamstrings', 'calves'].includes(selectedMuscleSlug)) return 'legs';
@@ -203,16 +211,22 @@ export function InteractiveMuscleMap({
 
   const poseMeta =
     characterPose === 'FRONT'
-      ? { src: '/images/character/character-front-cutout.png?v=7', w: 316, h: 675 }
+      ? { src: '/images/character/character-front-cutout.png?v=9', w: 316, h: 675 }
       : characterPose === 'BACK'
-      ? { src: '/images/character/character-back-cutout.png?v=7', w: 302, h: 675 }
+      ? { src: '/images/character/character-back-cutout.png?v=9', w: 302, h: 675 }
       : characterPose === 'SIDE_RIGHT'
-      ? { src: '/images/character/character-side-cutout.png?v=7', w: 154, h: 675 }
+      ? { src: '/images/character/character-side-cutout.png?v=9', w: 154, h: 675 }
       : characterPose === 'SIDE_LEFT'
-      ? { src: '/images/character/character-side-left-cutout.png?v=7', w: 154, h: 675 }
-      : { src: '/images/character/character-quad-cutout.png?v=7', w: 950, h: 675 };
+      ? { src: '/images/character/character-side-left-cutout.png?v=9', w: 154, h: 675 }
+      : { src: '/images/character/character-quad-cutout.png?v=9', w: 950, h: 675 };
 
-  // Strict precision selector: stains ONLY hovered head, OR selected exact sub-muscle head, OR broad group
+  const isBackGroupSelected = ['latissimus-dorsi', 'trapezius', 'lower-back'].includes(
+    selectedMuscleSlug
+  );
+
+  // Clean icon switch inside CHARACTER_MUSCLE_GROUPS list
+  const getGroupIconId = (id) => (id === 'lower-back' ? 'back' : id);
+
   const isRegionActive = (reg) => {
     if (hoveredRegion) {
       return reg.id === hoveredRegion.id;
@@ -226,7 +240,7 @@ export function InteractiveMuscleMap({
     return reg.slug === selectedMuscleSlug;
   };
 
-  // Layer B1: Pure Anatomical Hue-Shift Dye (transforms skin tone directly into deep striated muscle crimson)
+  // Layer B1: Pure Anatomical Hue-Shift Dye
   const renderColorDyeLayer = (regions, transform = '') => (
     <g transform={transform}>
       {regions.map((reg, idx) => {
@@ -249,7 +263,7 @@ export function InteractiveMuscleMap({
     </g>
   );
 
-  // Layer B2: Rich Anatomical Multiply Belly Depth (darkens midtones organically while keeping white tendons clean)
+  // Layer B2: Rich Anatomical Multiply Belly Depth
   const renderMultiplyDepthLayer = (regions, transform = '') => (
     <g transform={transform}>
       {regions.map((reg, idx) => {
@@ -272,41 +286,52 @@ export function InteractiveMuscleMap({
     </g>
   );
 
-  // Layer C: Invisible Precision Hit Surface (+ Soft Crimson Fabric Illumination when Glutes Active)
-  const renderInteractiveLayer = (regions, transform = '') => (
+  // Layer B3: Masked Crimson Illumination Over Dark Compression Trunks When Glutes Selected
+  const renderGluteTintLayer = (regions, transform = '') => (
     <g transform={transform}>
       {regions.map((reg, idx) => {
-        const active = isRegionActive(reg);
-        const isGluteGlow = active && reg.slug === 'glutes';
+        if (reg.slug !== 'glutes' || !isRegionActive(reg)) return null;
         return (
-          <g
-            key={`hit-${reg.side}-${reg.id}-${idx}`}
-            onClick={() => handleSelectMuscle(reg.slug, reg.side, reg.id)}
-            onMouseEnter={() => setHoveredRegion(reg)}
-            onMouseLeave={() => setHoveredRegion(null)}
-            role="button"
-            tabIndex={0}
-            aria-label={`Select ${reg.name}`}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                handleSelectMuscle(reg.slug, reg.side, reg.id);
-              }
-            }}
-            className="cursor-pointer focus:outline-none"
-          >
+          <g key={`glute-glow-${reg.side}-${reg.id}-${idx}`}>
             {reg.paths.map((d, pIdx) => (
               <path
                 key={pIdx}
                 d={d}
-                fill={isGluteGlow ? 'rgba(239, 68, 68, 0.36)' : 'transparent'}
-                stroke="none"
-                filter={isGluteGlow ? `url(#muscle-feather-${characterPose})` : undefined}
+                fill="rgba(239, 68, 68, 0.36)"
+                filter={`url(#muscle-feather-${characterPose})`}
               />
             ))}
           </g>
         );
       })}
+    </g>
+  );
+
+  // Layer C: Pure Unmasked Transparent Hit Surface (instant crisp hover/click with zero box outline)
+  const renderInteractiveLayer = (regions, transform = '') => (
+    <g transform={transform}>
+      {regions.map((reg, idx) => (
+        <g
+          key={`hit-${reg.side}-${reg.id}-${idx}`}
+          onClick={() => handleSelectMuscle(reg.slug, reg.side, reg.id)}
+          onMouseEnter={() => setHoveredRegion(reg)}
+          onMouseLeave={() => setHoveredRegion(null)}
+          role="button"
+          tabIndex={0}
+          aria-label={`Select ${reg.name}`}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              handleSelectMuscle(reg.slug, reg.side, reg.id);
+            }
+          }}
+          className="cursor-pointer focus:outline-none"
+        >
+          {reg.paths.map((d, pIdx) => (
+            <path key={pIdx} d={d} fill="transparent" stroke="none" />
+          ))}
+        </g>
+      ))}
     </g>
   );
 
@@ -480,12 +505,12 @@ export function InteractiveMuscleMap({
                     </mask>
                     <filter
                       id={`muscle-feather-${characterPose}`}
-                      x="-10%"
-                      y="-10%"
-                      width="120%"
-                      height="120%"
+                      x="-30%"
+                      y="-30%"
+                      width="160%"
+                      height="160%"
                     >
-                      <feGaussianBlur stdDeviation="1.5" />
+                      <feGaussianBlur stdDeviation="1.1" />
                     </filter>
                   </defs>
 
@@ -561,8 +586,34 @@ export function InteractiveMuscleMap({
                       )}
                   </g>
 
-                  {/* Layer 3: Invisible Precision Hit Regions (No Boxes or Outlines) */}
-                  <g mask={`url(#body-silhouette-mask-${characterPose})`}>
+                  {/* Masked Glutes Fabric Glow Over Compression Trunks */}
+                  <g
+                    mask={`url(#body-silhouette-mask-${characterPose})`}
+                    className="pointer-events-none"
+                    aria-hidden="true"
+                  >
+                    {characterPose === 'ALL' && (
+                      <>
+                        {renderGluteTintLayer(FRONT_CHARACTER_REGIONS, 'translate(0, 0)')}
+                        {renderGluteTintLayer(SIDE_CHARACTER_REGIONS, 'translate(318, 0)')}
+                        {renderGluteTintLayer(BACK_CHARACTER_REGIONS, 'translate(478, 0)')}
+                        {renderGluteTintLayer(
+                          SIDE_CHARACTER_REGIONS,
+                          'translate(790, 0) translate(154, 0) scale(-1, 1)'
+                        )}
+                      </>
+                    )}
+                    {characterPose === 'BACK' && renderGluteTintLayer(BACK_CHARACTER_REGIONS)}
+                    {characterPose === 'SIDE_RIGHT' && renderGluteTintLayer(SIDE_CHARACTER_REGIONS)}
+                    {characterPose === 'SIDE_LEFT' &&
+                      renderGluteTintLayer(
+                        SIDE_CHARACTER_REGIONS,
+                        'translate(154, 0) scale(-1, 1)'
+                      )}
+                  </g>
+
+                  {/* Layer 3: Precision Hit Regions (Unmasked Transparent Target for Instant Hover/Click) */}
+                  <g>
                     {characterPose === 'ALL' && (
                       <>
                         {renderInteractiveLayer(FRONT_CHARACTER_REGIONS, 'translate(0, 0)')}
@@ -626,18 +677,18 @@ export function InteractiveMuscleMap({
                     )}
                   </div>
 
-                  {subMusclesForActiveParent.length > 1 && (
+                  {isBackGroupSelected ? (
                     <div className="flex flex-wrap items-center justify-center gap-1.5 max-w-xl">
                       <button
                         type="button"
-                        onClick={() => handleSelectMuscle(selectedMuscleSlug, viewMode, null)}
+                        onClick={() => handleSelectMuscle('latissimus-dorsi', 'BACK', null)}
                         className={`px-2.5 py-1 rounded-full text-[11px] font-bold border transition-all ${
-                          !selectedSubMuscleId
+                          selectedMuscleSlug === 'latissimus-dorsi' && !selectedSubMuscleId
                             ? 'bg-[#DC2626] text-white border-[#DC2626] shadow-sm'
-                            : 'bg-white text-[#263B2D] border-[#D2D9C5] hover:border-[#DC2626]'
+                            : 'bg-white text-[#263B2D] border-[#D2D9C5] hover:border-[#DC2626] hover:text-[#DC2626]'
                         }`}
                       >
-                        All Parts
+                        Full Lats
                       </button>
                       {subMusclesForActiveParent.map((head) => {
                         const isHeadActive = selectedSubMuscleId === head.id;
@@ -658,15 +709,95 @@ export function InteractiveMuscleMap({
                           </button>
                         );
                       })}
+                      {selectedMuscleSlug === 'trapezius' && (
+                        <button
+                          type="button"
+                          onClick={() => handleSelectMuscle('trapezius', 'BACK', null)}
+                          className={`px-2.5 py-1 rounded-full text-[11px] font-bold border transition-all ${
+                            !selectedSubMuscleId
+                              ? 'bg-[#DC2626] text-white border-[#DC2626] shadow-sm'
+                              : 'bg-white text-[#263B2D] border-[#D2D9C5] hover:border-[#DC2626]'
+                          }`}
+                        >
+                          All Traps
+                        </button>
+                      )}
                     </div>
+                  ) : (
+                    subMusclesForActiveParent.length > 1 && (
+                      <div className="flex flex-wrap items-center justify-center gap-1.5 max-w-xl">
+                        <button
+                          type="button"
+                          onClick={() => handleSelectMuscle(selectedMuscleSlug, viewMode, null)}
+                          className={`px-2.5 py-1 rounded-full text-[11px] font-bold border transition-all ${
+                            !selectedSubMuscleId
+                              ? 'bg-[#DC2626] text-white border-[#DC2626] shadow-sm'
+                              : 'bg-white text-[#263B2D] border-[#D2D9C5] hover:border-[#DC2626]'
+                          }`}
+                        >
+                          All Parts
+                        </button>
+                        {subMusclesForActiveParent.map((head) => {
+                          const isHeadActive = selectedSubMuscleId === head.id;
+                          return (
+                            <button
+                              key={head.id}
+                              type="button"
+                              onClick={() =>
+                                handleSelectMuscle(head.slug, head.side, head.id)
+                              }
+                              className={`px-2.5 py-1 rounded-full text-[11px] font-bold border transition-all ${
+                                isHeadActive
+                                  ? 'bg-[#DC2626] text-white border-[#DC2626] shadow-sm'
+                                  : 'bg-white text-[#263B2D] border-[#D2D9C5] hover:border-[#DC2626] hover:text-[#DC2626]'
+                              }`}
+                            >
+                              {head.shortName}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )
                   )}
                 </>
               ) : (
-                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/85 border border-[#D2D9C5] text-xs font-semibold text-[#263B2D] shadow-sm">
-                  <span className="w-2 h-2 rounded-full bg-[#D99B82]" />
-                  <span>
-                    Click any muscle belly directly on the body (e.g. Triceps Long Head, Chest, Quads)
-                  </span>
+                <div className="flex flex-col items-center gap-1.5">
+                  <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/85 border border-[#D2D9C5] text-xs font-semibold text-[#263B2D] shadow-sm">
+                    <span className="w-2 h-2 rounded-full bg-[#D99B82]" />
+                    <span>
+                      Click any muscle directly on the body (e.g. Upper Lats, Lower Lats, Lower Back, Triceps Long Head)
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap items-center justify-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => handleSelectMuscle('latissimus-dorsi', 'BACK', null)}
+                      className="px-2.5 py-0.5 rounded-full bg-white hover:bg-[#DC2626] border border-[#D2D9C5] hover:border-[#DC2626] text-[11px] font-bold text-[#263B2D] hover:text-white transition-colors"
+                    >
+                      Full Lats
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSelectMuscle('latissimus-dorsi', 'BACK', 'lats-upper')}
+                      className="px-2.5 py-0.5 rounded-full bg-white hover:bg-[#DC2626] border border-[#D2D9C5] hover:border-[#DC2626] text-[11px] font-bold text-[#263B2D] hover:text-white transition-colors"
+                    >
+                      Upper Lats
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSelectMuscle('latissimus-dorsi', 'BACK', 'lats-lower')}
+                      className="px-2.5 py-0.5 rounded-full bg-white hover:bg-[#DC2626] border border-[#D2D9C5] hover:border-[#DC2626] text-[11px] font-bold text-[#263B2D] hover:text-white transition-colors"
+                    >
+                      Lower Lats
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSelectMuscle('lower-back', 'BACK', 'lower-back-erectors')}
+                      className="px-2.5 py-0.5 rounded-full bg-white hover:bg-[#DC2626] border border-[#D2D9C5] hover:border-[#DC2626] text-[11px] font-bold text-[#263B2D] hover:text-white transition-colors"
+                    >
+                      Lower Back
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -684,7 +815,9 @@ export function InteractiveMuscleMap({
                   <button
                     key={group.id}
                     type="button"
-                    onClick={() => handleSelectMuscle(group.slug, group.side, null)}
+                    onClick={() =>
+                      handleSelectMuscle(group.slug, group.side, group.subMuscleId || null)
+                    }
                     className={`flex items-center gap-2.5 px-3 py-2 rounded-xl border text-xs font-bold transition-all text-left ${
                       isActive
                         ? 'bg-[#173F35] text-white border-2 border-[#DC2626] shadow-sm'
@@ -692,7 +825,7 @@ export function InteractiveMuscleMap({
                     }`}
                   >
                     <span className={isActive ? 'text-[#FCA5A5]' : 'text-[#173F35]'}>
-                      <MuscleGroupLineIcon groupId={group.id} />
+                      <MuscleGroupLineIcon groupId={getGroupIconId(group.id)} />
                     </span>
                     <span className="truncate">{group.label}</span>
                   </button>
@@ -702,7 +835,7 @@ export function InteractiveMuscleMap({
           </div>
         </div>
 
-        {/* Bottom Center View Switcher Pill */}
+        {/* Bottom Center View Switcher Pill: Front · Side Right · Back · Side Left */}
         <div className="mt-3 flex justify-center">
           <div className="inline-flex flex-wrap items-center justify-center gap-1 bg-[#F1F2E8] p-1 rounded-full border border-[#D2D9C5] shadow-sm">
             {[

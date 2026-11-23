@@ -13,13 +13,13 @@ import {
   Repeat,
   Layers,
   Dumbbell,
-  ShieldCheck,
-  AlertTriangle,
   ArrowRight,
   Columns,
 } from 'lucide-react';
 import { AnatomicalPerformerCanvas } from './AnatomicalPerformerCanvas';
-import { parseVideoSource } from './ExerciseVisualDemo';
+import { FourStepVisualFormSequence } from './FourStepVisualFormSequence';
+import { SecureInstructionImage, SecureRangeVideoPlayer } from '../common/SecureMediaComponents';
+import { parseVideoSource } from '../../utils/movementKinematics';
 import {
   FRONT_CHARACTER_REGIONS,
   BACK_CHARACTER_REGIONS,
@@ -50,6 +50,7 @@ export function ExerciseWorkoutSimulator({
   exercise,
   selectedEquipmentSlug = 'ALL',
   performTrigger = 0,
+  autoPlayOnSelect = false,
 }) {
   const navigate = useNavigate();
   const {
@@ -73,7 +74,7 @@ export function ExerciseWorkoutSimulator({
 
   const prevTriggerRef = React.useRef(performTrigger);
 
-  // Reset animation smoothly whenever a new exercise or equipment is chosen
+  // Reset animation cleanly whenever a new exercise or equipment is chosen; show uploaded video first when attached
   useEffect(() => {
     const triggeredFromCard = performTrigger !== prevTriggerRef.current;
     prevTriggerRef.current = performTrigger;
@@ -81,14 +82,15 @@ export function ExerciseWorkoutSimulator({
     setPhaseProgress(0.65);
     setRepCount(0);
     setVideoError(false);
-    setStudioMode('PERFORM');
+    setStudioMode(hasCustomVideo ? 'VIDEO' : 'PERFORM');
     setVideoAngle(frontVideo && sideVideo ? 'DUAL' : frontVideo ? 'FRONT' : 'SIDE');
-    setIsPerforming(triggeredFromCard);
-  }, [exercise?.slug, selectedEquipmentSlug, performTrigger]);
+    setIsPerforming(triggeredFromCard || autoPlayOnSelect);
+  }, [exercise?.slug, selectedEquipmentSlug, performTrigger, autoPlayOnSelect, hasCustomVideo]);
 
-  // 60fps requestAnimationFrame loop when "Perform Workout" is active
+  // 60fps requestAnimationFrame loop when "Perform Workout" or Video Hit Sync is active
   useEffect(() => {
-    if (!isPerforming || studioMode !== 'PERFORM') return undefined;
+    const syncRedPulseWithVideo = studioMode === 'VIDEO';
+    if (!isPerforming && !syncRedPulseWithVideo) return undefined;
 
     let frameId;
     let startTime = performance.now();
@@ -100,10 +102,12 @@ export function ExerciseWorkoutSimulator({
       const cycleIndex = Math.floor(elapsed / cycleMs);
       if (cycleIndex > lastCycleIndex) {
         lastCycleIndex = cycleIndex;
-        setRepCount((prev) => prev + 1);
+        if (isPerforming && studioMode === 'PERFORM') {
+          setRepCount((prev) => prev + 1);
+        }
       }
       const rawPhase = (elapsed % cycleMs) / cycleMs;
-      // Smooth sine-eased contraction wave 0 -> 1 -> 0
+      // Smooth sine-eased contraction wave 0 -> 1 -> 0 so red muscle highlight breathes with reps
       const contraction = 0.5 - 0.5 * Math.cos(rawPhase * 2 * Math.PI);
       setPhaseProgress(contraction);
       frameId = requestAnimationFrame(tick);
@@ -148,9 +152,10 @@ export function ExerciseWorkoutSimulator({
   if (!exercise) return null;
 
   const phaseInfo = getRepPhaseInfo(phaseProgress, isPerforming);
-  const currentIntensity = isPerforming
-    ? phaseInfo.stimulusMultiplier
-    : 0.72 + phaseProgress * 0.28;
+  const currentIntensity =
+    isPerforming || studioMode === 'VIDEO'
+      ? phaseInfo.stimulusMultiplier
+      : 0.72 + phaseProgress * 0.28;
 
   const isSaved = isExerciseSaved(exercise.slug);
   const inWorkout = isExerciseInWorkout(exercise.slug);
@@ -203,8 +208,8 @@ export function ExerciseWorkoutSimulator({
               filter={`url(#${filterId})`}
             />
           </mask>
-          <filter id={featherId} x="-10%" y="-10%" width="120%" height="120%">
-            <feGaussianBlur stdDeviation="1.4" />
+          <filter id={featherId} x="-30%" y="-30%" width="160%" height="160%">
+            <feGaussianBlur stdDeviation="1.2" />
           </filter>
         </defs>
 
@@ -217,7 +222,10 @@ export function ExerciseWorkoutSimulator({
             if (!hit) return null;
             if (!activeHeadIds.has(reg.id)) return null;
             const isPrimary = hit.role === 'PRIMARY';
-            const intensity = isPerforming ? 0.55 + 0.43 * phaseProgress : 0.92;
+            const intensity =
+              isPerforming || studioMode === 'VIDEO'
+                ? 0.55 + 0.43 * phaseProgress
+                : 0.92;
             return (
               <g key={`dye-hit-${reg.id}-${idx}`}>
                 {reg.paths.map((d, pIdx) => (
@@ -241,7 +249,10 @@ export function ExerciseWorkoutSimulator({
             if (!hit) return null;
             if (!activeHeadIds.has(reg.id)) return null;
             const isPrimary = hit.role === 'PRIMARY';
-            const intensity = isPerforming ? 0.18 + 0.20 * phaseProgress : 0.30;
+            const intensity =
+              isPerforming || studioMode === 'VIDEO'
+                ? 0.18 + 0.22 * phaseProgress
+                : 0.30;
             return (
               <g key={`mul-hit-${reg.id}-${idx}`}>
                 {reg.paths.map((d, pIdx) => (
@@ -352,8 +363,11 @@ export function ExerciseWorkoutSimulator({
           <button
             type="button"
             onClick={() => {
-              setIsPerforming(false);
-              setStudioMode((prev) => (prev === 'VIDEO' ? 'PERFORM' : 'VIDEO'));
+              setStudioMode((prev) => {
+                const next = prev === 'VIDEO' ? 'PERFORM' : 'VIDEO';
+                if (next === 'PERFORM') setIsPerforming(true);
+                return next;
+              });
             }}
             className={`inline-flex items-center gap-1.5 px-4 py-3 rounded-xl border text-xs font-bold transition-all ${
               studioMode === 'VIDEO'
@@ -362,7 +376,7 @@ export function ExerciseWorkoutSimulator({
             }`}
           >
             <Video className="w-4 h-4" />
-            <span>{studioMode === 'VIDEO' ? 'Show 3D Model' : 'Watch Video'}</span>
+            <span>{studioMode === 'VIDEO' ? 'Live 3D Form Loop' : hasCustomVideo ? 'Watch Real Video' : 'Form Demo Loop'}</span>
           </button>
 
           <button
@@ -431,45 +445,54 @@ export function ExerciseWorkoutSimulator({
                 <div className="relative h-72 sm:h-80 rounded-xl overflow-hidden bg-[#173F35] border border-[#D2D9C5]">
                   {videoAngle === 'DUAL' && frontVideo && sideVideo ? (
                     <div className="grid grid-cols-2 w-full h-full divide-x divide-[#D2D9C5]">
-                      <VideoFrame source={frontVideo} title={`${exercise.name} Front`} onError={() => setVideoError(true)} />
-                      <VideoFrame source={sideVideo} title={`${exercise.name} Side`} onError={() => setVideoError(true)} />
+                      <VideoFrame
+                        source={frontVideo}
+                        mediaId={(exercise.mediaItems || []).find((m) => m.mediaType === 'VIDEO' && m.angle !== 'side')?.id || null}
+                        title={`${exercise.name} Front`}
+                        onError={() => setVideoError(true)}
+                      />
+                      <VideoFrame
+                        source={sideVideo}
+                        mediaId={(exercise.mediaItems || []).find((m) => m.mediaType === 'VIDEO' && m.angle === 'side')?.id || null}
+                        title={`${exercise.name} Side`}
+                        onError={() => setVideoError(true)}
+                      />
                     </div>
                   ) : (
                     <VideoFrame
                       source={frontVideo || sideVideo}
+                      mediaId={(exercise.mediaItems || []).find((m) => m.mediaType === 'VIDEO')?.id || null}
                       title={`${exercise.name} Video`}
                       onError={() => setVideoError(true)}
                     />
                   )}
                 </div>
               ) : (
-                <div className="h-72 sm:h-80 rounded-xl bg-[#F1F2E8] border border-dashed border-[#789575] flex flex-col items-center justify-center p-6 text-center space-y-3">
-                  <Video className="w-9 h-9 text-[#789575]" />
-                  <div>
-                    <p className="text-sm font-bold text-[#263B2D]">
-                      No custom MP4/YouTube video attached yet for {exercise.name}
-                    </p>
-                    <p className="text-xs text-[#657565] mt-1 max-w-sm">
-                      Click <strong>Perform Workout</strong> below to watch our 3D model demonstrate every rep and rate the muscles hit, or upload a custom clip in the Admin Studio.
-                    </p>
+                <div className="relative min-h-[290px] sm:min-h-[320px] rounded-xl bg-[#F1F2E8] bg-anatomy-grid border border-[#D2D9C5] flex flex-col items-center justify-between p-4 overflow-hidden">
+                  <div className="w-full flex items-center justify-between text-[11px] font-bold">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white border border-[#D2D9C5] text-[#263B2D]">
+                      <span className="w-2 h-2 rounded-full bg-[#DC2626] animate-ping" />
+                      <span>Animated Form Video • {activeEquipmentLabel}</span>
+                    </span>
+                    <span className="px-2.5 py-1 rounded-full bg-[#E5E8CE] border border-[#D2D9C5] text-[#173F35]">
+                      {phaseInfo.shortLabel}
+                    </span>
                   </div>
-                  <div className="flex flex-wrap items-center justify-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setStudioMode('PERFORM');
-                        setIsPerforming(true);
-                      }}
-                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#173F35] hover:bg-[#789575] text-white text-xs font-bold transition-colors"
-                    >
-                      <Play className="w-3.5 h-3.5 fill-current" />
-                      <span>Perform Workout with 3D Model</span>
-                    </button>
+                  <div className="flex-1 w-full flex items-center justify-center">
+                    <AnatomicalPerformerCanvas
+                      exercise={exercise}
+                      equipmentSlug={selectedEquipmentSlug}
+                      phaseProgress={phaseProgress}
+                      activeIntensity={currentIntensity}
+                    />
+                  </div>
+                  <div className="w-full flex items-center justify-between gap-2 text-[11px] text-[#657565]">
+                    <span>Your 3D model highlights hit muscles red with each rep.</span>
                     <Link
                       to={`/admin?exercise=${exercise.slug}`}
-                      className="px-4 py-2 rounded-xl bg-[#E5E8CE] border border-[#D2D9C5] text-[#263B2D] text-xs font-bold hover:bg-[#789575] hover:text-white transition-colors"
+                      className="px-2.5 py-1 rounded-lg bg-[#E5E8CE] border border-[#D2D9C5] text-[#173F35] font-bold hover:bg-[#789575] hover:text-white transition-colors shrink-0"
                     >
-                      Attach Custom Video
+                      + Custom MP4
                     </Link>
                   </div>
                 </div>
@@ -649,7 +672,7 @@ export function ExerciseWorkoutSimulator({
                 Anterior Hit
               </span>
               {renderAnatomicalHitFigure(
-                '/images/character/character-front-cutout.png?v=7',
+                '/images/character/character-front-cutout.png?v=9',
                 FRONT_CHARACTER_REGIONS,
                 316,
                 675,
@@ -663,7 +686,7 @@ export function ExerciseWorkoutSimulator({
                 Posterior Hit
               </span>
               {renderAnatomicalHitFigure(
-                '/images/character/character-back-cutout.png?v=7',
+                '/images/character/character-back-cutout.png?v=9',
                 BACK_CHARACTER_REGIONS,
                 302,
                 675,
@@ -729,133 +752,38 @@ export function ExerciseWorkoutSimulator({
         </div>
       </div>
 
-      {/* 3. STEP-BY-STEP VISUAL POSTURE IMAGES ("How to Perform It" Sequence) */}
-      <div className="space-y-3 pt-2">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <span className="text-xs font-bold uppercase tracking-wider text-[#173F35]">
-              How to Perform With {activeEquipmentLabel}
-            </span>
-            <h4 className="text-lg font-extrabold font-display text-[#263B2D]">
-              Step-by-Step Visual Form Sequence
-            </h4>
-          </div>
-          <Link
-            to={`/exercises/${exercise.slug}`}
-            className="inline-flex items-center gap-1 text-xs font-bold text-[#173F35] hover:text-[#789575]"
-          >
-            <span>Open Full Exercise Guide</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </Link>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-          {(exercise.instructions || []).map((step, idx) => {
-            const stepPhase = STEP_PHASE_PRESETS[idx] ?? 0.5;
-            const isSelectedStep =
-              !isPerforming && Math.abs(phaseProgress - stepPhase) < 0.08;
-
-            return (
-              <button
-                key={step.stepNumber}
-                type="button"
-                onClick={() => {
-                  setStudioMode('PERFORM');
-                  setIsPerforming(false);
-                  setPhaseProgress(stepPhase);
-                }}
-                className={`text-left flex flex-col rounded-2xl border overflow-hidden transition-all ${
-                  isSelectedStep
-                    ? 'bg-white border-2 border-[#173F35] shadow-md'
-                    : 'bg-white border-[#D2D9C5] hover:border-[#789575]'
-                }`}
-              >
-                {/* Step Posture Visual Image */}
-                <div className="relative bg-[#F1F2E8] bg-anatomy-grid border-b border-[#D2D9C5] p-2">
-                  <span className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-[#173F35] text-white text-[10px] font-extrabold">
-                    Step {step.stepNumber}
-                  </span>
-                  <AnatomicalPerformerCanvas
-                    exercise={exercise}
-                    equipmentSlug={selectedEquipmentSlug}
-                    phaseProgress={stepPhase}
-                    activeIntensity={0.45 + stepPhase * 0.5}
-                    compact={true}
-                  />
-                </div>
-
-                {/* Step Instructions */}
-                <div className="p-3.5 space-y-1 flex-1">
-                  <h5 className="text-xs sm:text-sm font-extrabold text-[#263B2D]">
-                    {step.title}
-                  </h5>
-                  <p className="text-[11px] sm:text-xs text-[#657565] leading-relaxed">
-                    {step.instruction}
-                  </p>
-                  {step.coachingCue && (
-                    <p className="text-[11px] font-bold text-[#173F35] pt-1">
-                      Cue: &ldquo;{step.coachingCue}&rdquo;
-                    </p>
-                  )}
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* 4. STARTING POSITION + SAFETY & COMMON MISTAKES */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-[#D2D9C5]">
-        <div className="p-4 rounded-2xl bg-white border border-[#D2D9C5] space-y-2">
-          <div className="flex items-center gap-1.5 text-xs font-bold text-[#263B2D]">
-            <AlertTriangle className="w-4 h-4 text-[#789575]" />
-            <span>Common Mistakes to Avoid</span>
-          </div>
-          <ul className="space-y-1.5">
-            {(exercise.commonMistakes || []).map((m, idx) => (
-              <li key={idx} className="text-xs text-[#657565] flex items-start gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#789575] shrink-0 mt-1.5" />
-                <span>{m}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        <div className="p-4 rounded-2xl bg-white border border-[#D2D9C5] space-y-2">
-          <div className="flex items-center gap-1.5 text-xs font-bold text-[#173F35]">
-            <ShieldCheck className="w-4 h-4" />
-            <span>Safety Cues & Starting Position</span>
-          </div>
-          <p className="text-xs text-[#263B2D] leading-relaxed bg-[#E5E8CE]/60 p-2.5 rounded-xl border border-[#D2D9C5]">
-            {exercise.startingPosition}
-          </p>
-          <ul className="space-y-1">
-            {(exercise.safetyTips || []).map((t, idx) => (
-              <li key={idx} className="text-xs text-[#657565] flex items-start gap-2">
-                <Check className="w-3.5 h-3.5 text-[#173F35] shrink-0 mt-0.5" />
-                <span>{t}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
+      {/* 3. STEP-BY-STEP VISUAL FORM SEQUENCE (Reusable Hybrid 4-Step Component) */}
+      <div className="pt-2">
+        <FourStepVisualFormSequence
+          exercise={exercise}
+          selectedEquipmentSlug={selectedEquipmentSlug}
+          activePhaseProgress={phaseProgress}
+          isPerforming={isPerforming}
+          onSelectStepPhase={(phase) => {
+            setStudioMode('PERFORM');
+            setIsPerforming(false);
+            setPhaseProgress(phase);
+          }}
+          showOpenGuideLink={true}
+          guideHref={`/exercises/${exercise.slug}`}
+          guideLabel="Open Full Exercise Guide"
+        />
       </div>
     </section>
   );
 }
 
-function VideoFrame({ source, title, onError }) {
+function VideoFrame({ source, title, onError, mediaId = null }) {
   if (!source) return null;
   if (source.type === 'video') {
     return (
-      <video
+      <SecureRangeVideoPlayer
         src={source.src}
-        autoPlay
-        loop
-        muted
-        playsInline
+        mediaId={mediaId}
+        title={title}
         controls
-        onError={onError}
-        className="w-full h-full object-cover"
+        onFallbackRequested={onError}
+        className="w-full h-full object-contain bg-[#102E27]"
       />
     );
   }
@@ -864,8 +792,9 @@ function VideoFrame({ source, title, onError }) {
       <img
         src={source.src}
         alt={title}
+        loading="lazy"
         onError={onError}
-        className="w-full h-full object-cover"
+        className="w-full h-full object-contain bg-[#102E27]"
       />
     );
   }

@@ -29,12 +29,15 @@ const {
 const { ApiTags, ApiOperation } = require('@nestjs/swagger');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const { PrismaService } = require('../../database/prisma.service');
+const { APP_CONFIG } = require('../../config/env.validation');
 const {
   sanitizeString,
   sanitizeSlugOrId,
   parsePagination,
 } = require('../../common/sanitize.util');
+const { buildFourStepInstructions } = require('../../common/four-step-sequence.util');
 
 const CUSTOM_VIDEOS_FILE = path.resolve(
   process.cwd(),
@@ -83,6 +86,9 @@ function sanitizeVideoUrl(url) {
   if (!trimmed) return '';
   if (
     trimmed.startsWith('/uploads/videos/') ||
+    trimmed.startsWith('/uploads/exercise-videos/') ||
+    trimmed.startsWith('/api/v1/media/') ||
+    trimmed.startsWith('/api/media/') ||
     trimmed.startsWith('http://') ||
     trimmed.startsWith('https://')
   ) {
@@ -90,7 +96,7 @@ function sanitizeVideoUrl(url) {
     return trimmed.replace(/[<>"']/g, '');
   }
   throw new BadRequestException(
-    'Video URL must start with https://, http://, or /uploads/videos/'
+    'Video URL must start with https://, http://, /api/v1/media/, /uploads/videos/, or /uploads/exercise-videos/'
   );
 }
 
@@ -102,22 +108,90 @@ class ExercisesService {
     this.customVideos = loadCustomVideosMap();
   }
 
+  _buildSignedMediaStreamUrl(mediaId) {
+    const ttl = APP_CONFIG.MINIO_PRESIGNED_EXPIRY_SEC || 900;
+    const exp = Math.floor(Date.now() / 1000) + ttl;
+    const sig = crypto
+      .createHmac('sha256', APP_CONFIG.MEDIA_STREAM_SECRET)
+      .update(`${mediaId}:${exp}`)
+      .digest('hex');
+    return `/api/v1/media/${mediaId}/stream?exp=${exp}&sig=${sig}`;
+  }
+
   _enrichWithVideo(exercise) {
     if (!exercise) return null;
-    const custom = this.customVideos[exercise.slug] || this.customVideos[exercise.id] || null;
-    const videoUrl = (custom && custom.videoUrl) || exercise.mediaUrl || '';
-    const sideVideoUrl = (custom && custom.sideVideoUrl) || '';
-    const videoNotes = (custom && custom.videoNotes) || '';
-    const videoUpdatedAt = (custom && custom.updatedAt) || null;
+    const customMap = loadCustomVideosMap();
+    const custom =
+      customMap[exercise.slug] ||
+      customMap[exercise.id] ||
+      this.customVideos[exercise.slug] ||
+      this.customVideos[exercise.id] ||
+      null;
+
+    const mediaRows =
+      Array.isArray(exercise.mediaItems) && exercise.mediaItems.length > 0
+        ? exercise.mediaItems
+        : (this.prisma.memoryStore?.exerciseMedia || []).filter(
+            (m) => m.exerciseId === exercise.id
+          );
+
+    const minioVideos = mediaRows.filter((m) => m.mediaType === 'VIDEO');
+    const frontMinio = minioVideos.find((v) => (v.angle || 'front') !== 'side') || minioVideos[0] || null;
+    const sideMinio = minioVideos.find((v) => v.angle === 'side') || null;
+
+    const instructionImages = { 1: null, 2: null, 3: null, 4: null };
+    const formattedMediaItems = mediaRows.map((row) => {
+      const streamUrl = this._buildSignedMediaStreamUrl(row.id);
+      const item = {
+        id: row.id,
+        mediaType: row.mediaType,
+        stepNumber: row.stepNumber,
+        angle: row.angle || 'front',
+        objectKey: row.objectKey,
+        originalFilename: row.originalFilename,
+        mimeType: row.mimeType,
+        fileSize: row.fileSize,
+        width: row.width || null,
+        height: row.height || null,
+        targetMusclePart: row.targetMusclePart || null,
+        notes: row.notes || null,
+        streamUrl,
+        updatedAt: row.updatedAt,
+      };
+      if (row.mediaType === 'IMAGE' && row.stepNumber >= 1 && row.stepNumber <= 4) {
+        instructionImages[row.stepNumber] = item;
+      }
+      return item;
+    });
+
+    const videoUrl = frontMinio
+      ? this._buildSignedMediaStreamUrl(frontMinio.id)
+      : (custom && custom.videoUrl) || exercise.mediaUrl || '';
+    const sideVideoUrl = sideMinio
+      ? this._buildSignedMediaStreamUrl(sideMinio.id)
+      : (custom && custom.sideVideoUrl) || '';
+    const videoNotes = (frontMinio && frontMinio.notes) || (custom && custom.videoNotes) || '';
+    const targetMusclePart =
+      (frontMinio && frontMinio.targetMusclePart) || (custom && custom.targetMusclePart) || '';
+    const targetEquipment = (custom && custom.targetEquipment) || '';
+    const videoUpdatedAt = (frontMinio && frontMinio.updatedAt) || (custom && custom.updatedAt) || null;
+
+    const normalizedSteps = buildFourStepInstructions(exercise, instructionImages);
 
     return {
       ...exercise,
+      instructions: normalizedSteps,
+      stepImages: normalizedSteps,
       mediaUrl: videoUrl || null,
       videoUrl: videoUrl || null,
       sideVideoUrl: sideVideoUrl || null,
       videoNotes: videoNotes || null,
+      targetMusclePart: targetMusclePart || null,
+      targetEquipment: targetEquipment || null,
       hasCustomVideo: Boolean(videoUrl || sideVideoUrl),
       videoUpdatedAt,
+      mediaItems: formattedMediaItems,
+      instructionImages,
     };
   }
 
@@ -357,6 +431,8 @@ class ExercisesService {
     const videoUrl = sanitizeVideoUrl(body.videoUrl || '');
     const sideVideoUrl = sanitizeVideoUrl(body.sideVideoUrl || '');
     const videoNotes = sanitizeString(body.videoNotes || '', 300);
+    const targetMusclePart = sanitizeString(body.targetMusclePart || '', 120);
+    const targetEquipment = sanitizeString(body.targetEquipment || '', 80);
 
     if (!videoUrl && !sideVideoUrl) {
       throw new BadRequestException(
@@ -369,6 +445,8 @@ class ExercisesService {
       videoUrl,
       sideVideoUrl,
       videoNotes,
+      targetMusclePart,
+      targetEquipment,
       updatedAt: new Date().toISOString(),
     };
 
@@ -400,7 +478,15 @@ class ExercisesService {
    */
   async uploadExerciseVideoFile(idOrSlug, body = {}) {
     const exercise = await this.findByIdOrSlug(idOrSlug);
-    const { fileName, fileDataUrl, angle = 'front', videoNotes = '' } = body || {};
+    const {
+      fileName,
+      fileDataUrl,
+      angle = 'front',
+      videoNotes = '',
+      targetMusclePart = '',
+      targetEquipment = '',
+      organizedByCategory = false,
+    } = body || {};
 
     if (!fileDataUrl || typeof fileDataUrl !== 'string') {
       throw new BadRequestException('No video file payload received.');
@@ -433,19 +519,31 @@ class ExercisesService {
     };
     const ext = extMap[mimeType] || path.extname(fileName || '.mp4') || '.mp4';
     const cleanAngle = angle === 'side' ? 'side' : 'front';
-    const safeFileName = `${exercise.slug}-${cleanAngle}-${Date.now()}${ext}`;
 
     ensureStorageDirs();
-    const fullPath = path.join(UPLOADS_DIR, safeFileName);
-    fs.writeFileSync(fullPath, buffer);
-
-    const publicUrl = `/uploads/videos/${safeFileName}`;
+    let publicUrl;
+    if (organizedByCategory) {
+      const catFolder = sanitizeSlugOrId(exercise.category || 'general') || 'general';
+      const targetDir = path.resolve(process.cwd(), 'uploads', 'exercise-videos', catFolder);
+      if (!fs.existsSync(targetDir)) fs.mkdirSync(targetDir, { recursive: true });
+      const fileSlugName = `${exercise.slug}${ext}`;
+      const fullPath = path.join(targetDir, fileSlugName);
+      fs.writeFileSync(fullPath, buffer);
+      publicUrl = `/uploads/exercise-videos/${catFolder}/${fileSlugName}`;
+    } else {
+      const safeFileName = `${exercise.slug}-${cleanAngle}-${Date.now()}${ext}`;
+      const fullPath = path.join(UPLOADS_DIR, safeFileName);
+      fs.writeFileSync(fullPath, buffer);
+      publicUrl = `/uploads/videos/${safeFileName}`;
+    }
     const existing = this.customVideos[exercise.slug] || {};
 
     const updatedPayload = {
       videoUrl: cleanAngle === 'front' ? publicUrl : existing.videoUrl || publicUrl,
       sideVideoUrl: cleanAngle === 'side' ? publicUrl : existing.sideVideoUrl || '',
       videoNotes: videoNotes || existing.videoNotes || '',
+      targetMusclePart: targetMusclePart || existing.targetMusclePart || '',
+      targetEquipment: targetEquipment || existing.targetEquipment || '',
     };
 
     return this.updateExerciseVideo(exercise.slug, updatedPayload);

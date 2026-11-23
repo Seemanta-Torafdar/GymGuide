@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { gymGuideApi } from '../services/api.service';
 import { formatDifficultyLabel, getDifficultyBadgeClasses } from '../utils/formatters';
+import { WorkoutExerciseDirectory } from '../components/workout/WorkoutExerciseDirectory';
 
 export default function WorkoutPlansPage() {
   const [plans, setPlans] = useState([]);
@@ -137,6 +138,9 @@ export default function WorkoutPlansPage() {
           ))}
         </div>
       )}
+
+      {/* Filterable 69-Exercise Directory by Body Part & Equipment */}
+      <WorkoutExerciseDirectory />
     </div>
   );
 }

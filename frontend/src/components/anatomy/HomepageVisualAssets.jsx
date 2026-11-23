@@ -1,4 +1,8 @@
-import React from 'react';
+import React, { useId } from 'react';
+import {
+  FRONT_CHARACTER_REGIONS,
+  BACK_CHARACTER_REGIONS,
+} from '../../data/characterHitRegions';
 
 export function FlexedBicepIcon({ className = 'w-4 h-4' }) {
   return (
@@ -19,13 +23,10 @@ export function FlexedBicepIcon({ className = 'w-4 h-4' }) {
 
 /**
  * 3D Anatomical Male Character Hero Model
- * Uses the high-resolution 3D character portrait (/images/character/character-hero-upper.png)
- * with a soft sage circular halo behind him.
  */
 export function HeroMuscularModel() {
   return (
     <div className="relative w-full h-full flex items-end justify-center select-none pointer-events-none py-1">
-      {/* Soft Sage Circular Halo Behind the 3D Character */}
       <div
         className="absolute w-48 h-48 sm:w-72 sm:h-72 rounded-full bg-[#D1DEC0]/80 border border-[#789575]/35 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
         aria-hidden="true"
@@ -40,8 +41,7 @@ export function HeroMuscularModel() {
 }
 
 /**
- * Dual Front & Back 3D Anatomical Male Character Bodies for the "Muscle Explorer" Card
- * Uses the high-resolution Front & Back cutouts from the user's 3D character.
+ * Dual Front & Back 3D Anatomical Male Character Bodies
  */
 export function DualExplorerAnatomyBodies({ onSelectMuscle }) {
   return (
@@ -53,7 +53,7 @@ export function DualExplorerAnatomyBodies({ onSelectMuscle }) {
         title="Explore Front Muscles (Chest, Shoulders, Abs, Quads)"
       >
         <img
-          src="/images/character/character-front-cutout.png?v=7"
+          src="/images/character/character-front-cutout.png?v=9"
           alt="Front 3D anatomical male character"
           className="w-auto h-44 sm:h-56 object-contain transition-transform duration-200 group-hover:scale-[1.03] drop-shadow-[0_8px_16px_rgba(23,63,53,0.16)]"
         />
@@ -66,7 +66,7 @@ export function DualExplorerAnatomyBodies({ onSelectMuscle }) {
         title="Explore Back Muscles (Back, Rear Delts, Glutes, Hamstrings)"
       >
         <img
-          src="/images/character/character-back-cutout.png?v=7"
+          src="/images/character/character-back-cutout.png?v=9"
           alt="Back 3D anatomical male character"
           className="w-auto h-44 sm:h-56 object-contain transition-transform duration-200 group-hover:scale-[1.03] drop-shadow-[0_8px_16px_rgba(23,63,53,0.16)]"
         />
@@ -75,31 +75,144 @@ export function DualExplorerAnatomyBodies({ onSelectMuscle }) {
   );
 }
 
-const MUSCLE_THUMBNAIL_MAP = {
-  chest: '/images/character/muscle-chest.png',
-  back: '/images/character/muscle-back.png',
-  shoulders: '/images/character/muscle-shoulders.png',
-  arms: '/images/character/muscle-arms.png',
-  legs: '/images/character/muscle-legs.png',
-  abs: '/images/character/muscle-abs.png',
-  glutes: '/images/character/muscle-glutes.png',
+const THUMB_CONFIG = {
+  chest: {
+    side: 'FRONT',
+    viewBox: '55 98 206 165',
+    slugs: ['chest'],
+  },
+  back: {
+    side: 'BACK',
+    viewBox: '36 80 230 212',
+    slugs: ['latissimus-dorsi', 'trapezius', 'lower-back'],
+  },
+  shoulders: {
+    side: 'FRONT',
+    viewBox: '36 96 244 170',
+    slugs: ['front-deltoids'],
+  },
+  arms: {
+    side: 'FRONT',
+    viewBox: '16 118 284 220',
+    slugs: ['biceps', 'forearms'],
+  },
+  legs: {
+    side: 'FRONT',
+    viewBox: '50 315 216 285',
+    slugs: ['quadriceps', 'calves'],
+  },
+  abs: {
+    side: 'FRONT',
+    viewBox: '72 142 172 182',
+    slugs: ['rectus-abdominis', 'obliques'],
+  },
+  glutes: {
+    side: 'BACK',
+    viewBox: '64 238 174 172',
+    slugs: ['glutes'],
+  },
 };
 
 /**
  * High-Resolution 3D Character Muscle Group Thumbnails
- * Used in "Browse by Muscle Group" cards and SelectedMuscleCard.
+ * Uses the user's uniform warm skin-tone ?v=7 character cutout with crimson red muscle highlighting (zero green).
  */
 export function MuscleCategoryThumbnail({ categoryId = 'chest' }) {
+  const uid = useId().replace(/:/g, '');
   const key = (categoryId || 'chest').toLowerCase();
-  const imgSrc = MUSCLE_THUMBNAIL_MAP[key] || MUSCLE_THUMBNAIL_MAP.chest;
+  const cfg = THUMB_CONFIG[key] || THUMB_CONFIG.chest;
+  const isBack = cfg.side === 'BACK';
+  const w = isBack ? 302 : 316;
+  const h = 675;
+  const imgSrc = isBack
+    ? '/images/character/character-back-cutout.png?v=9'
+    : '/images/character/character-front-cutout.png?v=9';
+  const regions = isBack ? BACK_CHARACTER_REGIONS : FRONT_CHARACTER_REGIONS;
+  const targetSlugs = new Set(cfg.slugs);
 
   return (
     <div className="w-full h-20 sm:h-24 flex items-center justify-center overflow-hidden select-none pointer-events-none">
-      <img
-        src={imgSrc}
-        alt={`${categoryId} 3D anatomical muscle highlight`}
-        className="w-full h-full object-contain drop-shadow-[0_4px_10px_rgba(23,63,53,0.15)]"
-      />
+      <svg
+        viewBox={cfg.viewBox}
+        preserveAspectRatio="xMidYMid meet"
+        className="w-full h-full drop-shadow-[0_4px_10px_rgba(23,63,53,0.15)]"
+        style={{ isolation: 'isolate' }}
+        role="img"
+        aria-label={`${categoryId} 3D anatomical muscle highlight`}
+      >
+        <defs>
+          <filter id={`thumb-alpha-${uid}`}>
+            <feColorMatrix
+              type="matrix"
+              values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 1 0"
+            />
+          </filter>
+          <mask id={`thumb-mask-${uid}`}>
+            <image
+              href={imgSrc}
+              x="0"
+              y="0"
+              width={w}
+              height={h}
+              filter={`url(#thumb-alpha-${uid})`}
+            />
+          </mask>
+          <filter id={`thumb-feather-${uid}`} x="-30%" y="-30%" width="160%" height="160%">
+            <feGaussianBlur stdDeviation="1.4" />
+          </filter>
+        </defs>
+
+        <image href={imgSrc} x="0" y="0" width={w} height={h} />
+
+        <g mask={`url(#thumb-mask-${uid})`} style={{ mixBlendMode: 'color' }}>
+          {regions.map((reg, idx) =>
+            targetSlugs.has(reg.slug)
+              ? reg.paths.map((d, pIdx) => (
+                  <path
+                    key={`tc-${idx}-${pIdx}`}
+                    d={d}
+                    fill="#DC1414"
+                    fillOpacity="0.95"
+                    filter={`url(#thumb-feather-${uid})`}
+                  />
+                ))
+              : null
+          )}
+        </g>
+
+        <g mask={`url(#thumb-mask-${uid})`} style={{ mixBlendMode: 'multiply' }}>
+          {regions.map((reg, idx) =>
+            targetSlugs.has(reg.slug)
+              ? reg.paths.map((d, pIdx) => (
+                  <path
+                    key={`tm-${idx}-${pIdx}`}
+                    d={d}
+                    fill="#E11D48"
+                    fillOpacity="0.32"
+                    filter={`url(#thumb-feather-${uid})`}
+                  />
+                ))
+              : null
+          )}
+        </g>
+
+        {key === 'glutes' && (
+          <g mask={`url(#thumb-mask-${uid})`}>
+            {regions.map((reg, idx) =>
+              reg.slug === 'glutes'
+                ? reg.paths.map((d, pIdx) => (
+                    <path
+                      key={`tg-${idx}-${pIdx}`}
+                      d={d}
+                      fill="rgba(239, 68, 68, 0.38)"
+                      filter={`url(#thumb-feather-${uid})`}
+                    />
+                  ))
+                : null
+            )}
+          </g>
+        )}
+      </svg>
     </div>
   );
 }

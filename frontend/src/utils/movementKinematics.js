@@ -1,8 +1,45 @@
 // ============================================================================
 // GYMGUIDE - ANATOMICAL MOVEMENT KINEMATICS & MUSCLE HIT MAPPING
-// Maps any seeded exercise + equipment into biomechanical movement patterns,
-// equipment render styles, 3D character hotspot overlays, and rep phase labels.
+// Maps every seeded exercise + chosen equipment into exact biomechanical postures,
+// equipment setups, 3D model overlays, and rep phase labels.
 // ============================================================================
+
+export function parseVideoSource(rawUrl) {
+  if (!rawUrl || typeof rawUrl !== 'string') return null;
+  const url = rawUrl.trim();
+  if (!url) return null;
+
+  const ytMatch = url.match(
+    /(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/
+  );
+  if (ytMatch) {
+    const videoId = ytMatch[1];
+    return {
+      type: 'iframe',
+      src: `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&loop=1&playlist=${videoId}&rel=0&modestbranding=1`,
+    };
+  }
+
+  const vimeoMatch = url.match(/vimeo\.com\/(?:video\/)?(\d+)/);
+  if (vimeoMatch) {
+    return {
+      type: 'iframe',
+      src: `https://player.vimeo.com/video/${vimeoMatch[1]}?autoplay=1&loop=1&muted=1`,
+    };
+  }
+
+  if (url.toLowerCase().endsWith('.gif') || url.toLowerCase().startsWith('data:image/gif')) {
+    return {
+      type: 'gif',
+      src: url,
+    };
+  }
+
+  return {
+    type: 'video',
+    src: url,
+  };
+}
 
 export function resolveEquipmentKind(exercise, selectedEquipmentSlug = 'ALL') {
   if (selectedEquipmentSlug && selectedEquipmentSlug !== 'ALL') {
@@ -38,44 +75,89 @@ export function resolveMovementPattern(exercise) {
   const name = (exercise?.name || '').toLowerCase();
   const text = `${slug} ${name}`;
 
-  if (text.includes('dip')) return 'dip';
-  if (text.includes('push-up') || text.includes('pushup')) return 'pushup';
-  if (text.includes('pec deck') || text.includes('fly') || text.includes('crossover')) {
-    if (text.includes('reverse')) return 'reverse_fly';
-    return 'chest_fly';
+  // Calves (check specific leg-press-calf-press & seated before leg_press)
+  if (text.includes('calf')) {
+    if (text.includes('leg-press') || text.includes('leg press')) return 'calf_press_leg';
+    if (text.includes('seated')) return 'calf_raise_seated';
+    return 'calf_raise';
   }
-  if (text.includes('bench press') || text.includes('chest press') || text.includes('dumbbell press')) {
+
+  // Chest specific movements & postures
+  if (text.includes('pec deck') || text.includes('pec-deck')) {
+    if (text.includes('reverse')) return 'reverse_fly';
+    return 'pec_deck';
+  }
+  if (text.includes('reverse') && text.includes('fly')) return 'reverse_fly';
+  if (text.includes('standing') && text.includes('chest press')) return 'standing_cable_press';
+  if (text.includes('machine') && text.includes('chest press')) return 'seated_chest_press';
+  if (text.includes('incline-chest-press-machine') || text.includes('incline chest press machine')) {
+    return 'seated_chest_press';
+  }
+  if (text.includes('crossover') || text.includes('cable-fly') || text.includes('cable fly') || text.includes('cable-chest-fly')) {
+    return 'cable_fly';
+  }
+  if (text.includes('fly')) return 'chest_fly';
+  if (text.includes('push-up') || text.includes('pushup')) return 'pushup';
+  if (text.includes('dip')) return 'dip';
+  if (
+    text.includes('bench press') ||
+    text.includes('chest press') ||
+    text.includes('dumbbell press') ||
+    text.includes('decline dumbbell press')
+  ) {
     return 'bench_press';
   }
-  if (text.includes('pull-up')) return 'pullup';
+
+  // Back & Pulls
+  if (text.includes('pull-up') || text.includes('chin-up')) return 'pullup';
   if (text.includes('pulldown')) return 'pulldown';
   if (text.includes('face pull')) return 'face_pull';
+  if (text.includes('seated') && text.includes('row')) return 'seated_row';
+  if (text.includes('single-arm') && text.includes('row')) return 'single_arm_row';
   if (text.includes('row')) return 'row';
   if (text.includes('deadlift') || text.includes('rdl')) return 'deadlift';
-  if (text.includes('overhead') && text.includes('press') || text.includes('shoulder press') || text.includes('arnold')) {
+
+  // Shoulders
+  if (
+    (text.includes('overhead') && text.includes('press')) ||
+    text.includes('shoulder press') ||
+    text.includes('arnold')
+  ) {
     return 'overhead_press';
   }
   if (text.includes('lateral raise')) return 'lateral_raise';
   if (text.includes('front') && text.includes('raise')) return 'front_raise';
+
+  // Arms & Forearms
   if (text.includes('pushdown')) return 'tricep_pushdown';
   if (text.includes('skull crusher')) return 'skull_crusher';
-  if (text.includes('overhead') && text.includes('extension')) return 'overhead_tricep';
+  if (text.includes('overhead') && (text.includes('extension') || text.includes('tricep'))) {
+    return 'overhead_tricep';
+  }
   if (text.includes('wrist curl')) return 'wrist_curl';
   if (text.includes('farmer')) return 'farmers_walk';
+  if (text.includes('preacher')) return 'preacher_curl';
+  if (text.includes('curl') && text.includes('leg')) return 'leg_curl';
   if (text.includes('curl')) return 'bicep_curl';
+
+  // Legs & Glutes
   if (text.includes('leg press')) return 'leg_press';
   if (text.includes('leg extension')) return 'leg_extension';
   if (text.includes('leg curl')) return 'leg_curl';
-  if (text.includes('lunge') || text.includes('split squat')) return 'lunge';
+  if (text.includes('bulgarian') || text.includes('split squat')) return 'split_squat';
+  if (text.includes('lunge')) return 'lunge';
   if (text.includes('squat')) return 'squat';
-  if (text.includes('hip thrust') || text.includes('glute bridge')) return 'hip_thrust';
+  if (text.includes('hip thrust')) return 'hip_thrust';
+  if (text.includes('glute bridge')) return 'glute_bridge';
   if (text.includes('kickback')) return 'kickback';
-  if (text.includes('calf')) return 'calf_raise';
+
+  // Core / Abs
   if (text.includes('plank')) return 'plank';
   if (text.includes('ab wheel') || text.includes('rollout')) return 'ab_wheel';
   if (text.includes('hanging leg raise')) return 'hanging_leg_raise';
   if (text.includes('cable crunch')) return 'cable_crunch';
-  if (text.includes('russian twist') || text.includes('bicycle')) return 'core_twist';
+  if (text.includes('russian twist')) return 'russian_twist';
+  if (text.includes('bicycle')) return 'bicycle_crunch';
 
   return 'bench_press';
 }
@@ -86,14 +168,14 @@ export function getRepPhaseInfo(phaseProgress = 0, isPerforming = false) {
       return {
         label: 'Step 1 • Setup & Starting Position',
         shortLabel: 'Setup',
-        stimulusMultiplier: 0.4,
+        stimulusMultiplier: 0.45,
       };
     }
     if (phaseProgress < 0.7) {
       return {
-        label: 'Step 2 • Eccentric Load / Stretch',
+        label: 'Step 2 • Eccentric Load / Full Stretch',
         shortLabel: 'Stretch',
-        stimulusMultiplier: 0.72,
+        stimulusMultiplier: 0.76,
       };
     }
     return {
@@ -105,21 +187,21 @@ export function getRepPhaseInfo(phaseProgress = 0, isPerforming = false) {
 
   if (phaseProgress < 0.2) {
     return {
-      label: 'Starting Tension & Bracing',
+      label: 'Setup & Starting Tension',
       shortLabel: 'Setup',
-      stimulusMultiplier: 0.35 + phaseProgress * 1.5,
+      stimulusMultiplier: 0.42 + phaseProgress * 1.4,
     };
   }
   if (phaseProgress < 0.55) {
     return {
       label: 'Controlled Concentric Drive',
       shortLabel: 'Drive',
-      stimulusMultiplier: 0.65 + (phaseProgress - 0.2) * 0.85,
+      stimulusMultiplier: 0.68 + (phaseProgress - 0.2) * 0.8,
     };
   }
   if (phaseProgress < 0.85) {
     return {
-      label: 'Peak Muscle Squeeze 🔥',
+      label: 'Peak Muscle Squeeze',
       shortLabel: 'Peak Hit',
       stimulusMultiplier: 0.92 + Math.sin(((phaseProgress - 0.55) / 0.3) * Math.PI) * 0.08,
     };
@@ -127,7 +209,7 @@ export function getRepPhaseInfo(phaseProgress = 0, isPerforming = false) {
   return {
     label: 'Slow Eccentric Return',
     shortLabel: 'Lowering',
-    stimulusMultiplier: 0.75 - (phaseProgress - 0.85) * 2.0,
+    stimulusMultiplier: 0.78 - (phaseProgress - 0.85) * 1.8,
   };
 }
 
